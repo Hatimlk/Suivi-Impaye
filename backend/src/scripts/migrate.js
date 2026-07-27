@@ -8,8 +8,12 @@ import bcrypt from 'bcryptjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
 
+const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye';
+const isSslNeeded = dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require') || process.env.NODE_ENV === 'production';
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye',
+  connectionString: dbUrl,
+  ssl: isSslNeeded ? { rejectUnauthorized: false } : false,
 });
 
 async function migrate() {
