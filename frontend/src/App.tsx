@@ -60,7 +60,7 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={isCommercial ? <Navigate to="/mes-dossiers" replace /> : <DossiersPage />} />
+          <Route index element={isCommercial ? <Navigate to="/mes-dossiers" replace /> : <Navigate to="/dashboard" replace />} />
           <Route path="dossiers" element={<DossiersPage />} />
           <Route path="dossiers/:id" element={<DossierDetailPage />} />
           <Route path="mes-dossiers" element={<CommercialPage />} />
