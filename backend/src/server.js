@@ -63,8 +63,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Erreur serveur interne' });
 });
 
-app.listen(config.port, () => {
-  console.log(`Serveur demarre sur le port ${config.port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(config.port, () => {
+    console.log(`Serveur demarre sur le port ${config.port}`);
+  });
+}
 
 export default app;
