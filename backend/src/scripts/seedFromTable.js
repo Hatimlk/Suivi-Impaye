@@ -4,9 +4,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye';
+const isSslNeeded = dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require') || process.env.NODE_ENV === 'production';
+
 const { Pool } = pg;
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye',
+  connectionString: dbUrl,
+  ssl: isSslNeeded ? { rejectUnauthorized: false } : false,
 });
 
 const commercialsList = [
@@ -305,6 +309,7 @@ async function seedData() {
 
     for (const row of tableData) {
       const commId = commerciauxMap[row.commercial_nom.toLowerCase()] || null;
+      const validRelation = row.relation === 'CD' ? 'CD' : 'CDC';
 
       const res = await client.query(
         `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
@@ -317,7 +322,7 @@ async function seedData() {
           row.type_valeur,
           row.numero_valeur,
           row.nom_tire,
-          row.relation,
+          validRelation,
           row.observations,
           commId,
           row.statut
