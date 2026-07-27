@@ -289,9 +289,18 @@ async function seedData() {
       );
     }
 
-    console.log('--- Insertion / Mise à jour des commerciaux ---');
+    console.log('--- Insertion / Mise à jour des commerciaux et du DG ---');
     const defaultPasswordHash = await bcrypt.hash('commercial123', 10);
+    const dgPasswordHash = await bcrypt.hash('franck2026', 12);
     const commerciauxMap = {};
+
+    // DG
+    await client.query(
+      `INSERT INTO users (nom, email, mot_de_passe_hash, role, actif)
+       VALUES ('Franck Guillet', 'franck.guillet@gadimat.ma', $1, 'admin', true)
+       ON CONFLICT (email) DO UPDATE SET nom = EXCLUDED.nom, role = 'admin'`,
+      [dgPasswordHash]
+    );
 
     for (const com of commercialsList) {
       const res = await client.query(
