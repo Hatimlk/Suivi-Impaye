@@ -4,18 +4,30 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Table des rôles de référence
-CREATE TYPE user_role AS ENUM ('admin', 'responsable_recouvrement', 'commercial', 'lecture_seule');
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('admin', 'responsable_recouvrement', 'commercial', 'lecture_seule');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Table des types de valeur
-CREATE TYPE type_valeur_enum AS ENUM ('CHQ', 'LCN');
+DO $$ BEGIN
+    CREATE TYPE type_valeur_enum AS ENUM ('CHQ', 'LCN');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- Table des relations
-CREATE TYPE relation_enum AS ENUM ('CD', 'CDC');
+DO $$ BEGIN
+    CREATE TYPE relation_enum AS ENUM ('CD', 'CDC');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- ============================================================
 -- TABLE: users
 -- ============================================================
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nom VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -26,14 +38,14 @@ CREATE TABLE users (
     date_modification TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_users_actif ON users(actif);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_actif ON users(actif);
 
 -- ============================================================
 -- TABLE: banques_reference
 -- ============================================================
-CREATE TABLE banques_reference (
+CREATE TABLE IF NOT EXISTS banques_reference (
     id SERIAL PRIMARY KEY,
     nom VARCHAR(255) NOT NULL UNIQUE,
     actif BOOLEAN NOT NULL DEFAULT true,
@@ -43,7 +55,7 @@ CREATE TABLE banques_reference (
 -- ============================================================
 -- TABLE: statuts_reference
 -- ============================================================
-CREATE TABLE statuts_reference (
+CREATE TABLE IF NOT EXISTS statuts_reference (
     id SERIAL PRIMARY KEY,
     libelle VARCHAR(255) NOT NULL UNIQUE,
     ordre INTEGER NOT NULL DEFAULT 0,
@@ -55,7 +67,7 @@ CREATE TABLE statuts_reference (
 -- ============================================================
 -- TABLE: relations_reference
 -- ============================================================
-CREATE TABLE relations_reference (
+CREATE TABLE IF NOT EXISTS relations_reference (
     id SERIAL PRIMARY KEY,
     code VARCHAR(10) NOT NULL UNIQUE,
     libelle VARCHAR(255) NOT NULL,
@@ -66,7 +78,7 @@ CREATE TABLE relations_reference (
 -- ============================================================
 -- TABLE: dossiers
 -- ============================================================
-CREATE TABLE dossiers (
+CREATE TABLE IF NOT EXISTS dossiers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     date_saisie DATE NOT NULL DEFAULT CURRENT_DATE,
     banque VARCHAR(255) NOT NULL,
@@ -84,18 +96,18 @@ CREATE TABLE dossiers (
     date_derniere_modification TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_dossiers_commercial ON dossiers(commercial_id);
-CREATE INDEX idx_dossiers_statut ON dossiers(statut);
-CREATE INDEX idx_dossiers_banque ON dossiers(banque);
-CREATE INDEX idx_dossiers_date_saisie ON dossiers(date_saisie);
-CREATE INDEX idx_dossiers_type_valeur ON dossiers(type_valeur);
-CREATE INDEX idx_dossiers_date_derniere_action ON dossiers(date_derniere_action);
-CREATE INDEX idx_dossiers_numero_valeur ON dossiers(numero_valeur);
+CREATE INDEX IF NOT EXISTS idx_dossiers_commercial ON dossiers(commercial_id);
+CREATE INDEX IF NOT EXISTS idx_dossiers_statut ON dossiers(statut);
+CREATE INDEX IF NOT EXISTS idx_dossiers_banque ON dossiers(banque);
+CREATE INDEX IF NOT EXISTS idx_dossiers_date_saisie ON dossiers(date_saisie);
+CREATE INDEX IF NOT EXISTS idx_dossiers_type_valeur ON dossiers(type_valeur);
+CREATE INDEX IF NOT EXISTS idx_dossiers_date_derniere_action ON dossiers(date_derniere_action);
+CREATE INDEX IF NOT EXISTS idx_dossiers_numero_valeur ON dossiers(numero_valeur);
 
 -- ============================================================
 -- TABLE: actions
 -- ============================================================
-CREATE TABLE actions (
+CREATE TABLE IF NOT EXISTS actions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     dossier_id UUID NOT NULL REFERENCES dossiers(id) ON DELETE CASCADE,
     date_action TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
@@ -105,14 +117,14 @@ CREATE TABLE actions (
     date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_actions_dossier ON actions(dossier_id);
-CREATE INDEX idx_actions_auteur ON actions(auteur_id);
-CREATE INDEX idx_actions_date_action ON actions(date_action);
+CREATE INDEX IF NOT EXISTS idx_actions_dossier ON actions(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_actions_auteur ON actions(auteur_id);
+CREATE INDEX IF NOT EXISTS idx_actions_date_action ON actions(date_action);
 
 -- ============================================================
 -- TABLE: refresh_tokens (pour le refresh JWT)
 -- ============================================================
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token VARCHAR(500) NOT NULL UNIQUE,
@@ -120,13 +132,13 @@ CREATE TABLE refresh_tokens (
     date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
 
 -- ============================================================
 -- TABLE: audit_logs
 -- ============================================================
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     utilisateur_id UUID REFERENCES users(id) ON DELETE SET NULL,
     dossier_id UUID REFERENCES dossiers(id) ON DELETE SET NULL,
@@ -135,7 +147,7 @@ CREATE TABLE audit_logs (
     date_action TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_audit_logs_utilisateur ON audit_logs(utilisateur_id);
-CREATE INDEX idx_audit_logs_dossier ON audit_logs(dossier_id);
-CREATE INDEX idx_audit_logs_action_type ON audit_logs(action_type);
-CREATE INDEX idx_audit_logs_date_action ON audit_logs(date_action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_utilisateur ON audit_logs(utilisateur_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_dossier ON audit_logs(dossier_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_type ON audit_logs(action_type);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_date_action ON audit_logs(date_action);
