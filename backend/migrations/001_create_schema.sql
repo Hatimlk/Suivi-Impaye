@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS dossiers (
     type_valeur type_valeur_enum NOT NULL DEFAULT 'CHQ',
     numero_valeur VARCHAR(100) NOT NULL,
     nom_tire VARCHAR(255) NOT NULL,
-    relation relation_enum NOT NULL DEFAULT 'C',
+    relation relation_enum NOT NULL DEFAULT 'CD',
     observations TEXT DEFAULT '',
     commercial_id UUID REFERENCES users(id) ON DELETE SET NULL,
     statut VARCHAR(255) NOT NULL DEFAULT 'Attente retour du client',

@@ -4,6 +4,9 @@ import { fileURLToPath } from 'url';
 import pg from 'pg';
 import * as XLSX from 'xlsx';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { Pool } = pg;
