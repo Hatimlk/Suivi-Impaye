@@ -137,8 +137,9 @@ router.get('/alerts', async (req, res) => {
   try {
     const conditions = [];
     const params = [];
+    let paramIndex = 1;
     if (req.user.role === 'commercial') {
-      conditions.push(`commercial_id = $${paramIndex}`);
+      conditions.push(`d.commercial_id = $${paramIndex}`);
       params.push(req.user.id);
       paramIndex++;
     }
@@ -185,8 +186,9 @@ router.get('/stats', async (req, res) => {
   try {
     const conditions = [];
     const params = [];
+    let paramIndex = 1;
     if (req.user.role === 'commercial') {
-      conditions.push(`commercial_id = $${paramIndex}`);
+      conditions.push(`d.commercial_id = $${paramIndex}`);
       params.push(req.user.id);
       paramIndex++;
     }
