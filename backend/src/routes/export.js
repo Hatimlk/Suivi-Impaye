@@ -13,9 +13,7 @@ router.get('/excel', async (req, res) => {
     const params = [];
     let idx = 1;
 
-    if (req.user.role === 'commercial') {
-      conditions.push(`d.commercial_id = $${idx}`); params.push(req.user.id); idx++;
-    }
+
     const { banque, statut, type_valeur, date_debut, date_fin } = req.query;
     if (banque) { conditions.push(`d.banque = $${idx}`); params.push(banque); idx++; }
     if (statut) { conditions.push(`d.statut = $${idx}`); params.push(statut); idx++; }

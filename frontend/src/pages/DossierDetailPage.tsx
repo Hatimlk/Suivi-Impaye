@@ -4,10 +4,10 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatMontant, formatDate, formatDateTime, joursDepuis } from '../utils';
 import type { Dossier, Action } from '../types';
-import { Card, Button, Select, Textarea, StatusBadge, Badge, PageSpinner, EmptyState } from '../components/ui';
+import { Card, Button, Select, Textarea, Input, Modal, StatusBadge, Badge, PageSpinner, EmptyState } from '../components/ui';
 import {
   ArrowLeft, Send, Calendar, Building2, Hash, User, FileText,
-  Clock, Printer, Trash2, MessageSquare,
+  Clock, Printer, Trash2, MessageSquare, Pencil,
 } from 'lucide-react';
 
 export default function DossierDetailPage() {
@@ -23,6 +23,22 @@ export default function DossierDetailPage() {
   const [showStatutChange, setShowStatutChange] = useState(false);
   const [statutsRef, setStatutsRef] = useState<string[]>([]);
   const [motifChangement, setMotifChangement] = useState('');
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    banque: '',
+    montant: '',
+    type_valeur: 'CHQ',
+    numero_valeur: '',
+    nom_tire: '',
+    relation: 'CD',
+    observations: '',
+    statut: '',
+    commercial_id: '',
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [banques, setBanques] = useState<string[]>([]);
+  const [commerciaux, setCommerciaux] = useState<{ id: string; nom: string }[]>([]);
 
   const loadDossier = async () => {
     try {
@@ -40,7 +56,43 @@ export default function DossierDetailPage() {
   useEffect(() => {
     loadDossier();
     api.getStatuts().then((s) => setStatutsRef(s.map((x: any) => x.libelle))).catch(() => {});
+    api.getBanques().then((b) => setBanques(b.map((x: any) => x.nom))).catch(() => {});
+    api.getUsers().then((u) => setCommerciaux(u.filter((x: any) => x.role === 'commercial' && x.actif))).catch(() => {});
   }, [id]);
+
+  const openEditModal = () => {
+    if (!dossier) return;
+    setEditForm({
+      banque: dossier.banque,
+      montant: String(dossier.montant),
+      type_valeur: dossier.type_valeur,
+      numero_valeur: dossier.numero_valeur,
+      nom_tire: dossier.nom_tire,
+      relation: dossier.relation,
+      observations: dossier.observations || '',
+      statut: dossier.statut,
+      commercial_id: dossier.commercial_id || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setEditLoading(true);
+      await api.updateDossier(id!, {
+        ...editForm,
+        montant: parseFloat(editForm.montant),
+        commercial_id: editForm.commercial_id || null,
+      });
+      setShowEditModal(false);
+      await loadDossier();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la modification du dossier');
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const handleAddAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +160,12 @@ export default function DossierDetailPage() {
           Retour à la liste
         </button>
         <div className="flex items-center gap-2">
+          {user?.role !== 'lecture_seule' && (
+            <Button variant="outline" onClick={openEditModal}>
+              <Pencil className="w-4 h-4" />
+              Modifier
+            </Button>
+          )}
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="w-4 h-4" />
             Imprimer
@@ -127,7 +185,7 @@ export default function DossierDetailPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{dossier.nom_tire}</h1>
-              <p className="text-sm text-gray-500 mt-1">N {dossier.numero_valeur}</p>
+              <p className="text-sm text-gray-500 mt-1">N° {dossier.numero_valeur}</p>
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge statut={dossier.statut} />
@@ -259,6 +317,100 @@ export default function DossierDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Modal modification dossier */}
+      <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Modifier le dossier">
+        <form onSubmit={handleSaveEdit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Banque *"
+              value={editForm.banque}
+              onChange={(e) => setEditForm({ ...editForm, banque: e.target.value })}
+              required
+            >
+              <option value="">-- Choisir --</option>
+              {banques.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </Select>
+            <Input
+              label="Montant *"
+              type="number"
+              step="0.01"
+              value={editForm.montant}
+              onChange={(e) => setEditForm({ ...editForm, montant: e.target.value })}
+              required
+            />
+            <Select
+              label="Type de valeur *"
+              value={editForm.type_valeur}
+              onChange={(e) => setEditForm({ ...editForm, type_valeur: e.target.value })}
+            >
+              <option value="CHQ">Chèque (CHQ)</option>
+              <option value="LCN">Lettre de change (LCN)</option>
+            </Select>
+            <Input
+              label="N° Valeur *"
+              value={editForm.numero_valeur}
+              onChange={(e) => setEditForm({ ...editForm, numero_valeur: e.target.value })}
+              required
+            />
+            <div className="col-span-2">
+              <Input
+                label="Nom du tiré *"
+                value={editForm.nom_tire}
+                onChange={(e) => setEditForm({ ...editForm, nom_tire: e.target.value })}
+                required
+              />
+            </div>
+            <Select
+              label="Relation"
+              value={editForm.relation}
+              onChange={(e) => setEditForm({ ...editForm, relation: e.target.value })}
+            >
+              <option value="CD">Client Direct (CD)</option>
+              <option value="CDC">Client de Client (CDC)</option>
+            </Select>
+            <Select
+              label="Commercial"
+              value={editForm.commercial_id}
+              onChange={(e) => setEditForm({ ...editForm, commercial_id: e.target.value })}
+            >
+              <option value="">-- Non assigné --</option>
+              {commerciaux.map((c) => (
+                <option key={c.id} value={c.id}>{c.nom}</option>
+              ))}
+            </Select>
+            <div className="col-span-2">
+              <Select
+                label="Statut"
+                value={editForm.statut}
+                onChange={(e) => setEditForm({ ...editForm, statut: e.target.value })}
+              >
+                {statutsRef.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="col-span-2">
+              <Textarea
+                label="Observations"
+                value={editForm.observations}
+                onChange={(e) => setEditForm({ ...editForm, observations: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => setShowEditModal(false)}>
+              Annuler
+            </Button>
+            <Button type="submit" loading={editLoading}>
+              {editLoading ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
