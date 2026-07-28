@@ -21,7 +21,21 @@ export default function DossierDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [newStatut, setNewStatut] = useState('');
   const [showStatutChange, setShowStatutChange] = useState(false);
-  const [statutsRef, setStatutsRef] = useState<string[]>([]);
+  const [statutsRef, setStatutsRef] = useState<string[]>([
+    'Attente retour du client',
+    'En cours de traitement',
+    'Régularisé - OK',
+    'Représenté',
+    'Règlement à recevoir',
+    'Règlement à récupérer',
+    'Règlement partiel',
+    'Valeur à remplacer',
+    "Valeur envoyée à l'encaissement",
+    'A rendre au client',
+    'Contentieux',
+    'Pré-contentieux',
+    'Sans suite',
+  ]);
   const [motifChangement, setMotifChangement] = useState('');
 
   const [showEditModal, setShowEditModal] = useState(false);

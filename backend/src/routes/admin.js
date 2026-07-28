@@ -13,7 +13,7 @@ import {
 } from '../schemas/validation.js';
 
 const router = Router();
-router.use(authenticateToken, requireRole('admin'));
+router.use(authenticateToken);
 
 // ====================== UTILISATEURS ======================
 
@@ -28,7 +28,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-router.post('/users', validate(createUserSchema), async (req, res) => {
+router.post('/users', requireRole('admin'), validate(createUserSchema), async (req, res) => {
   try {
     const { nom, email, mot_de_passe, role, actif } = req.validated;
     const exists = await query('SELECT id FROM users WHERE email = $1', [email]);
@@ -48,7 +48,7 @@ router.post('/users', validate(createUserSchema), async (req, res) => {
   }
 });
 
-router.put('/users/:id', validate(updateUserSchema), async (req, res) => {
+router.put('/users/:id', requireRole('admin'), validate(updateUserSchema), async (req, res) => {
   try {
     const existing = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {
@@ -85,7 +85,7 @@ router.put('/users/:id', validate(updateUserSchema), async (req, res) => {
   }
 });
 
-router.patch('/users/:id/toggle', async (req, res) => {
+router.patch('/users/:id/toggle', requireRole('admin'), async (req, res) => {
   try {
     const result = await query(
       'UPDATE users SET actif = NOT actif, date_modification = NOW() WHERE id = $1 RETURNING id, nom, email, role, actif',
@@ -109,7 +109,7 @@ router.get('/banques', async (req, res) => {
   }
 });
 
-router.post('/banques', validate(createBanqueSchema), async (req, res) => {
+router.post('/banques', requireRole('admin'), validate(createBanqueSchema), async (req, res) => {
   try {
     const result = await query('INSERT INTO banques_reference (nom) VALUES ($1) RETURNING *', [req.validated.nom]);
     res.status(201).json(result.rows[0]);
@@ -119,7 +119,7 @@ router.post('/banques', validate(createBanqueSchema), async (req, res) => {
   }
 });
 
-router.delete('/banques/:id', async (req, res) => {
+router.delete('/banques/:id', requireRole('admin'), async (req, res) => {
   try {
     await query('DELETE FROM banques_reference WHERE id = $1', [req.params.id]);
     res.json({ message: 'Banque supprimee' });
@@ -139,7 +139,7 @@ router.get('/statuts', async (req, res) => {
   }
 });
 
-router.post('/statuts', validate(createStatutSchema), async (req, res) => {
+router.post('/statuts', requireRole('admin'), validate(createStatutSchema), async (req, res) => {
   try {
     const { libelle, ordre, couleur } = req.validated;
     const result = await query(
@@ -153,7 +153,7 @@ router.post('/statuts', validate(createStatutSchema), async (req, res) => {
   }
 });
 
-router.put('/statuts/:id', async (req, res) => {
+router.put('/statuts/:id', requireRole('admin'), async (req, res) => {
   try {
     const { libelle, ordre, couleur, actif } = req.body;
     const result = await query(
@@ -170,7 +170,7 @@ router.put('/statuts/:id', async (req, res) => {
   }
 });
 
-router.delete('/statuts/:id', async (req, res) => {
+router.delete('/statuts/:id', requireRole('admin'), async (req, res) => {
   try {
     await query('DELETE FROM statuts_reference WHERE id = $1', [req.params.id]);
     res.json({ message: 'Statut supprime' });
@@ -190,7 +190,7 @@ router.get('/relations', async (req, res) => {
   }
 });
 
-router.post('/relations', validate(createRelationSchema), async (req, res) => {
+router.post('/relations', requireRole('admin'), validate(createRelationSchema), async (req, res) => {
   try {
     const result = await query(
       'INSERT INTO relations_reference (code, libelle) VALUES ($1, $2) RETURNING *',
@@ -203,7 +203,7 @@ router.post('/relations', validate(createRelationSchema), async (req, res) => {
   }
 });
 
-router.delete('/relations/:id', async (req, res) => {
+router.delete('/relations/:id', requireRole('admin'), async (req, res) => {
   try {
     await query('DELETE FROM relations_reference WHERE id = $1', [req.params.id]);
     res.json({ message: 'Relation supprimee' });
@@ -214,7 +214,7 @@ router.delete('/relations/:id', async (req, res) => {
 
 // ====================== AUDIT LOGS ======================
 
-router.get('/audit-logs', async (req, res) => {
+router.get('/audit-logs', requireRole('admin'), async (req, res) => {
   try {
     const { page = 1, limit = 50, utilisateur_id, dossier_id, action_type, date_debut, date_fin } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
