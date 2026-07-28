@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { formatMontant, formatDate, cn } from '../utils';
+import { formatMontant, formatDate, joursDepuis, cn } from '../utils';
 import { CATEGORICAL, SEQUENTIAL_BLUE, CHART_INK } from '../utils/chartColors';
 import type { DashboardStats, Dossier } from '../types';
 import {
@@ -637,6 +637,7 @@ export default function DashboardPage() {
               <Thead>
                 <tr>
                   <Th>Date</Th>
+                  <Th align="center">Jours</Th>
                   <Th>N° Valeur</Th>
                   <Th>Type</Th>
                   <Th>Nom du Tiré</Th>
@@ -649,7 +650,7 @@ export default function DashboardPage() {
               <Tbody>
                 {filteredRecent.length === 0 ? (
                   <Tr>
-                    <Td colSpan={8} className="text-center py-6 text-gray-400 text-xs">
+                    <Td colSpan={9} className="text-center py-6 text-gray-400 text-xs">
                       Aucun dossier trouvé
                     </Td>
                   </Tr>
@@ -657,6 +658,20 @@ export default function DashboardPage() {
                   filteredRecent.map((d) => (
                     <Tr key={d.id} className="hover:bg-brand-50/30 transition-colors">
                       <Td className="text-xs text-gray-500">{formatDate(d.date_saisie)}</Td>
+                      <Td align="center">
+                        <span
+                          className={cn(
+                            'text-xs font-semibold px-2 py-0.5 rounded-md inline-block',
+                            joursDepuis(d.date_saisie) >= 30
+                              ? 'bg-red-50 text-red-700 border border-red-200'
+                              : joursDepuis(d.date_saisie) >= 7
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                              : 'bg-gray-100 text-gray-700'
+                          )}
+                        >
+                          {joursDepuis(d.date_saisie)}j
+                        </span>
+                      </Td>
                       <Td className="font-mono text-xs font-bold text-gray-800">{d.numero_valeur}</Td>
                       <Td>
                         <Badge

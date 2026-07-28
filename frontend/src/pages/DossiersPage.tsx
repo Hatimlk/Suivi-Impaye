@@ -357,11 +357,15 @@ export default function DossiersPage() {
                   <Td align="center">
                     <span
                       className={cn(
-                        'text-sm font-medium',
-                        joursDepuis(d.date_derniere_action) > 7 ? 'text-danger-600' : 'text-gray-600'
+                        'text-xs font-semibold px-2 py-0.5 rounded-md inline-block',
+                        joursDepuis(d.date_saisie) >= 30
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : joursDepuis(d.date_saisie) >= 7
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-gray-100 text-gray-700'
                       )}
                     >
-                      {joursDepuis(d.date_derniere_action || d.date_creation)}
+                      {joursDepuis(d.date_saisie)}j
                     </span>
                   </Td>
                   <Td align="center">
