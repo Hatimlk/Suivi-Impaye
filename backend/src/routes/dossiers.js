@@ -36,6 +36,8 @@ router.get('/', async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const conditions = [];
     const params = [];
+    let paramIndex = 1;
+
     // Filtrage rôle: commercial ne voit que ses dossiers
     if (req.user.role === 'commercial') {
       conditions.push(`d.commercial_id = $${paramIndex}`);
