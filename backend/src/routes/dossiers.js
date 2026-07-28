@@ -36,9 +36,12 @@ router.get('/', async (req, res) => {
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const conditions = [];
     const params = [];
-    let paramIndex = 1;
-
-
+    // Filtrage rôle: commercial ne voit que ses dossiers
+    if (req.user.role === 'commercial') {
+      conditions.push(`d.commercial_id = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
 
     if (search) {
       conditions.push(`(d.nom_tire ILIKE $${paramIndex} OR d.numero_valeur ILIKE $${paramIndex} OR d.banque ILIKE $${paramIndex})`);
@@ -134,9 +137,11 @@ router.get('/alerts', async (req, res) => {
   try {
     const conditions = [];
     const params = [];
-    let paramIndex = 1;
-
-
+    if (req.user.role === 'commercial') {
+      conditions.push(`commercial_id = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
 
     const whereBase = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
     const thresholdDays = 7;
@@ -180,9 +185,11 @@ router.get('/stats', async (req, res) => {
   try {
     const conditions = [];
     const params = [];
-    let paramIndex = 1;
-
-
+    if (req.user.role === 'commercial') {
+      conditions.push(`commercial_id = $${paramIndex}`);
+      params.push(req.user.id);
+      paramIndex++;
+    }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
@@ -457,9 +464,10 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
-    const dossier = result.rows[0];
-
-
+    // Vérification accès pour commercial
+    if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé à ce dossier' });
+    }
 
     // Récupérer les actions
     const actionsResult = await query(
@@ -491,7 +499,11 @@ router.post('/', validate(createDossierSchema), async (req, res) => {
       }
     }
 
-    let commercialId = data.commercial_id || (req.user.role === 'commercial' ? req.user.id : null);
+    // Si le user est commercial, il ne peut créer que pour lui-même
+    let commercialId = data.commercial_id || req.user.id;
+    if (req.user.role === 'commercial') {
+      commercialId = req.user.id;
+    }
 
     const result = await query(
       `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
@@ -528,9 +540,9 @@ router.put('/:id', validate(updateDossierSchema), async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
-    const dossier = existing.rows[0];
-
-
+    if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
     if (req.user.role === 'lecture_seule') {
       return res.status(403).json({ error: 'Lecture seule - modification interdite' });
     }
@@ -582,9 +594,9 @@ router.patch('/:id/statut', async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
-    const dossier = existing.rows[0];
-
-
+    if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
     if (req.user.role === 'lecture_seule') {
       return res.status(403).json({ error: 'Lecture seule - modification interdite' });
     }
@@ -657,6 +669,9 @@ router.post('/:id/actions', validate(createActionSchema), async (req, res) => {
     }
 
     const dossier = existing.rows[0];
+    if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
+      return res.status(403).json({ error: 'Accès refusé' });
+    }
 
 
     if (req.user.role === 'lecture_seule') {
