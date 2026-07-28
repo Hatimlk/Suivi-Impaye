@@ -468,6 +468,8 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
+    const dossier = result.rows[0];
+
     // Vérification accès pour commercial
     if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
       return res.status(403).json({ error: 'Accès refusé à ce dossier' });
