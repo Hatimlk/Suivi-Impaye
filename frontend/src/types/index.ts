@@ -58,6 +58,15 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
+export interface EvolutionPoint {
+  periode: string;
+  label: string;
+  count: number;
+  total_montant: number;
+  commercials: Record<string, number>;
+  [commercialName: string]: any;
+}
+
 export interface DashboardStats {
   total: { count: number; montant: number };
   parStatut: { statut: string; count: number; total_montant: number }[];
@@ -65,6 +74,9 @@ export interface DashboardStats {
   parCommercial: { commercial_nom: string; count: number; total_montant: number }[];
   parType: { type_valeur: string; count: number; total_montant: number }[];
   evolutionMensuelle: { mois: string; count: number; total_montant: number }[];
+  evolutionHebdo?: EvolutionPoint[];
+  evolutionMensuelleDetail?: EvolutionPoint[];
+  evolutionAnnuelle?: EvolutionPoint[];
   dossiersDormants: number;
 }
 

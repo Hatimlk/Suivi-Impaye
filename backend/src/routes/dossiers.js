@@ -204,6 +204,9 @@ router.get('/stats', async (req, res) => {
       parCommercialResult,
       parTypeResult,
       evolutionMensuelleResult,
+      evolutionHebdoRaw,
+      evolutionMensuelleRaw,
+      evolutionAnnuelleRaw,
       dormantsCountResult,
     ] = await Promise.all([
       // Total en cours
@@ -242,7 +245,7 @@ router.get('/stats', async (req, res) => {
          GROUP BY type_valeur`,
         params
       ),
-      // Évolution mensuelle
+      // Évolution mensuelle basique (rétrocompatibilité)
       query(
         `SELECT TO_CHAR(date_saisie, 'YYYY-MM') as mois,
                 COUNT(*) as count,
@@ -250,6 +253,51 @@ router.get('/stats', async (req, res) => {
          FROM dossiers d ${whereClause}
          GROUP BY TO_CHAR(date_saisie, 'YYYY-MM')
          ORDER BY mois DESC LIMIT 12`,
+        params
+      ),
+      // Évolution Hebdomadaire par Commercial
+      query(
+        `SELECT 
+           TO_CHAR(DATE_TRUNC('week', d.date_saisie), 'YYYY-"W"IW') as periode,
+           TO_CHAR(DATE_TRUNC('week', d.date_saisie), '"Sem." IW YYYY') as label,
+           COALESCE(u.nom, 'Non assigné') as commercial_nom,
+           COUNT(*) as count,
+           COALESCE(SUM(d.montant), 0) as total_montant
+         FROM dossiers d
+         LEFT JOIN users u ON d.commercial_id = u.id
+         ${whereClause}
+         GROUP BY DATE_TRUNC('week', d.date_saisie), TO_CHAR(DATE_TRUNC('week', d.date_saisie), 'YYYY-"W"IW'), TO_CHAR(DATE_TRUNC('week', d.date_saisie), '"Sem." IW YYYY'), u.nom
+         ORDER BY DATE_TRUNC('week', d.date_saisie) ASC`,
+        params
+      ),
+      // Évolution Mensuelle détaillée par Commercial
+      query(
+        `SELECT 
+           TO_CHAR(d.date_saisie, 'YYYY-MM') as periode,
+           TO_CHAR(d.date_saisie, 'YYYY-MM') as label,
+           COALESCE(u.nom, 'Non assigné') as commercial_nom,
+           COUNT(*) as count,
+           COALESCE(SUM(d.montant), 0) as total_montant
+         FROM dossiers d
+         LEFT JOIN users u ON d.commercial_id = u.id
+         ${whereClause}
+         GROUP BY TO_CHAR(d.date_saisie, 'YYYY-MM'), u.nom
+         ORDER BY periode ASC`,
+        params
+      ),
+      // Évolution Annuelle par Commercial
+      query(
+        `SELECT 
+           TO_CHAR(d.date_saisie, 'YYYY') as periode,
+           TO_CHAR(d.date_saisie, 'YYYY') as label,
+           COALESCE(u.nom, 'Non assigné') as commercial_nom,
+           COUNT(*) as count,
+           COALESCE(SUM(d.montant), 0) as total_montant
+         FROM dossiers d
+         LEFT JOIN users u ON d.commercial_id = u.id
+         ${whereClause}
+         GROUP BY TO_CHAR(d.date_saisie, 'YYYY'), u.nom
+         ORDER BY periode ASC`,
         params
       ),
       // Nombre de dossiers dormants
@@ -262,6 +310,32 @@ router.get('/stats', async (req, res) => {
       ),
     ]);
 
+    // Fonction pivot JS pour transformer les résultats SQL en structure chronologique avec colonnes par commercial
+    const pivotData = (rows) => {
+      const map = new Map();
+      rows.forEach((r) => {
+        const key = r.periode;
+        if (!map.has(key)) {
+          map.set(key, {
+            periode: key,
+            label: r.label || key,
+            total_montant: 0,
+            count: 0,
+            commercials: {},
+          });
+        }
+        const item = map.get(key);
+        const m = parseFloat(r.total_montant);
+        const c = parseInt(r.count);
+        item.total_montant += m;
+        item.count += c;
+        const comm = r.commercial_nom || 'Non assigné';
+        item.commercials[comm] = (item.commercials[comm] || 0) + m;
+        item[comm] = (item[comm] || 0) + m;
+      });
+      return Array.from(map.values());
+    };
+
     res.json({
       total: {
         count: parseInt(totalResult.rows[0].count),
@@ -272,6 +346,9 @@ router.get('/stats', async (req, res) => {
       parCommercial: parCommercialResult.rows,
       parType: parTypeResult.rows,
       evolutionMensuelle: evolutionMensuelleResult.rows.reverse(),
+      evolutionHebdo: pivotData(evolutionHebdoRaw.rows),
+      evolutionMensuelleDetail: pivotData(evolutionMensuelleRaw.rows),
+      evolutionAnnuelle: pivotData(evolutionAnnuelleRaw.rows),
       dossiersDormants: parseInt(dormantsCountResult.rows[0].count),
     });
   } catch (err) {

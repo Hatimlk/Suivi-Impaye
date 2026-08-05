@@ -5,14 +5,14 @@ import { formatMontant, formatDate, joursDepuis, cn } from '../utils';
 import { CATEGORICAL, SEQUENTIAL_BLUE, CHART_INK } from '../utils/chartColors';
 import type { DashboardStats, Dossier } from '../types';
 import {
-  BarChart, Bar, AreaChart, Area,
+  BarChart, Bar, AreaChart, Area, LineChart, Line, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
   FolderOpen, TrendingUp, AlertTriangle, Clock, Download, Plus,
   FileText, CheckCircle2, Copy, Check, Search, ArrowRight,
   CreditCard, Calendar as CalendarIcon, ShieldCheck, ChevronRight, User,
-  ChevronLeft, X, BellRing, Info
+  ChevronLeft, X, BellRing, Info, Filter, Layers
 } from 'lucide-react';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, StatusBadge, Button, Input, PageSpinner, EmptyState, ChartTooltip
@@ -277,6 +277,203 @@ function RelanceCalendar() {
   );
 }
 
+const COMMERCIAL_COLORS = [
+  '#2563eb', // Blue
+  '#7c3aed', // Violet
+  '#059669', // Emerald
+  '#d97706', // Amber
+  '#dc2626', // Red
+  '#0891b2', // Cyan
+  '#e11d48', // Rose
+  '#4f46e5', // Indigo
+];
+
+function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
+  const [periodMode, setPeriodMode] = useState<'hebdo' | 'mensuel' | 'annuel'>('mensuel');
+  const [selectedCommercial, setSelectedCommercial] = useState<string>('all');
+
+  const commercials = (stats.parCommercial || [])
+    .map((c) => c.commercial_nom)
+    .filter((nom): nom is string => Boolean(nom) && nom !== 'Non assigné');
+
+  let activeData: any[] = [];
+  if (periodMode === 'hebdo') {
+    activeData = stats.evolutionHebdo && stats.evolutionHebdo.length > 0
+      ? stats.evolutionHebdo
+      : [];
+  } else if (periodMode === 'mensuel') {
+    activeData = stats.evolutionMensuelleDetail && stats.evolutionMensuelleDetail.length > 0
+      ? stats.evolutionMensuelleDetail
+      : (stats.evolutionMensuelle || []).map((m) => ({ ...m, label: m.mois, periode: m.mois }));
+  } else {
+    activeData = stats.evolutionAnnuelle && stats.evolutionAnnuelle.length > 0
+      ? stats.evolutionAnnuelle
+      : [];
+  }
+
+  // Calcul du montant total filtré pour le résumé
+  const totalFilteredPeriod = activeData.reduce((acc, pt) => {
+    if (selectedCommercial === 'all') {
+      return acc + (pt.total_montant || 0);
+    }
+    return acc + (pt[selectedCommercial] || 0);
+  }, 0);
+
+  return (
+    <Card className="lg:col-span-8 p-5 space-y-4 shadow-xs border-gray-200">
+      {/* Header controls: Title + Period Pills + Commercial Select */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+        <div>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-brand-600" />
+            <h2 className="text-base font-bold text-gray-900">Évolution des Impayés</h2>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Courbes des montants par périodicité (Hebdo, Mois, Annuel) et commercial
+          </p>
+        </div>
+
+        {/* Filters Controls Group */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Period Selector Tabs */}
+          <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200/80">
+            <button
+              onClick={() => setPeriodMode('hebdo')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                periodMode === 'hebdo'
+                  ? 'bg-white text-brand-700 shadow-xs font-bold'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              Hebdo
+            </button>
+            <button
+              onClick={() => setPeriodMode('mensuel')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                periodMode === 'mensuel'
+                  ? 'bg-white text-brand-700 shadow-xs font-bold'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              Mois
+            </button>
+            <button
+              onClick={() => setPeriodMode('annuel')}
+              className={cn(
+                'px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer',
+                periodMode === 'annuel'
+                  ? 'bg-white text-brand-700 shadow-xs font-bold'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              Annuel
+            </button>
+          </div>
+
+          {/* Commercial Dropdown */}
+          <div className="relative">
+            <select
+              value={selectedCommercial}
+              onChange={(e) => setSelectedCommercial(e.target.value)}
+              className="pl-7 pr-8 py-1.5 bg-brand-50/80 border border-brand-200 text-brand-800 text-xs font-bold rounded-xl appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <option value="all">Tous les commerciaux (Comparatif)</option>
+              {commercials.map((c) => (
+                <option key={c} value={c}>
+                  Commercial : {c}
+                </option>
+              ))}
+            </select>
+            <User className="w-3.5 h-3.5 text-brand-600 absolute left-2 top-2.5 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* Metric summary bar */}
+      <div className="flex items-center justify-between bg-gray-50/80 px-3.5 py-2 rounded-xl border border-gray-100 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-500">Période :</span>
+          <span className="font-bold text-gray-800 uppercase tracking-wider">
+            {periodMode === 'hebdo' ? 'Hebdomadaire' : periodMode === 'mensuel' ? 'Mensuelle' : 'Annuelle'}
+          </span>
+          <span className="text-gray-300">•</span>
+          <span className="font-semibold text-brand-700">
+            {selectedCommercial === 'all' ? 'Vue comparative' : `Commercial: ${selectedCommercial}`}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 font-mono font-extrabold text-brand-700">
+          <span className="text-gray-500 font-normal">Total :</span>
+          <span className="text-xs sm:text-sm text-emerald-700">{formatMontant(totalFilteredPeriod)}</span>
+        </div>
+      </div>
+
+      {/* Chart Canvas */}
+      <ResponsiveContainer width="100%" height={260}>
+        {selectedCommercial === 'all' ? (
+          <LineChart data={activeData} margin={{ left: -10, right: 15, top: 10, bottom: 0 }}>
+            <CartesianGrid vertical={false} stroke={CHART_INK.gridline} strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatKAxis} tick={valueAxisTick} axisLine={false} tickLine={false} />
+            <Tooltip content={(p: any) => <ChartTooltip {...p} formatter={formatMontant} />} />
+            <Legend
+              wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+              iconType="circle"
+            />
+            {/* Total General Line */}
+            <Line
+              type="monotone"
+              dataKey="total_montant"
+              name="Total Général"
+              stroke="#0f172a"
+              strokeWidth={3}
+              strokeDasharray="4 4"
+              dot={{ r: 4, fill: '#0f172a' }}
+            />
+            {/* Per Commercial Lines */}
+            {commercials.map((commName, idx) => (
+              <Line
+                key={commName}
+                type="monotone"
+                dataKey={commName}
+                name={commName}
+                stroke={COMMERCIAL_COLORS[idx % COMMERCIAL_COLORS.length]}
+                strokeWidth={2.5}
+                dot={{ r: 3.5, strokeWidth: 1.5, stroke: '#fff' }}
+                activeDot={{ r: 5.5 }}
+              />
+            ))}
+          </LineChart>
+        ) : (
+          <AreaChart data={activeData} margin={{ left: -10, right: 15, top: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorSingleComm" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={COMMERCIAL_COLORS[0]} stopOpacity={0.4} />
+                <stop offset="95%" stopColor={COMMERCIAL_COLORS[0]} stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke={CHART_INK.gridline} strokeDasharray="3 3" />
+            <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={formatKAxis} tick={valueAxisTick} axisLine={false} tickLine={false} />
+            <Tooltip content={(p: any) => <ChartTooltip {...p} formatter={formatMontant} />} />
+            <Area
+              type="monotone"
+              dataKey={selectedCommercial}
+              name={`Commercial: ${selectedCommercial}`}
+              stroke={COMMERCIAL_COLORS[0]}
+              strokeWidth={3}
+              fill="url(#colorSingleComm)"
+              dot={{ r: 4, fill: COMMERCIAL_COLORS[0], strokeWidth: 2, stroke: '#fff' }}
+              activeDot={{ r: 6.5 }}
+            />
+          </AreaChart>
+        )}
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -518,43 +715,8 @@ export default function DashboardPage() {
           {/* Row 1: Main Evolution Chart + Progress Gauge Card + Relance Calendar */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-            {/* Main Area Chart Card */}
-            <Card className="lg:col-span-8 p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Évolution de la Collecte</h2>
-                  <p className="text-xs text-gray-400">Montants régularisés par mois</p>
-                </div>
-                <Badge tone="brand" pill className="bg-brand-50 text-brand-700 font-semibold px-2.5 py-1">
-                  Année 2026
-                </Badge>
-              </div>
-
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={stats.evolutionMensuelle} margin={{ left: 0, right: 10, top: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="areaColorBrand" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={SEQUENTIAL_BLUE[450]} stopOpacity={0.35} />
-                      <stop offset="95%" stopColor={SEQUENTIAL_BLUE[450]} stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} stroke={CHART_INK.gridline} strokeDasharray="3 3" />
-                  <XAxis dataKey="mois" tick={axisTick} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={formatKAxis} tick={valueAxisTick} axisLine={false} tickLine={false} />
-                  <Tooltip content={(p: any) => <ChartTooltip {...p} formatter={formatMontant} />} />
-                  <Area
-                    type="monotone"
-                    dataKey="total_montant"
-                    name="Montant encaisse"
-                    stroke={SEQUENTIAL_BLUE[450]}
-                    strokeWidth={3}
-                    fill="url(#areaColorBrand)"
-                    dot={{ r: 4, fill: SEQUENTIAL_BLUE[450], strokeWidth: 2, stroke: '#fff' }}
-                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff' }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
+            {/* Main Evolution Chart by Period & Commercial */}
+            <EvolutionImpayesChart stats={stats} />
 
             {/* Gauge & Calendar Column */}
             <div className="lg:col-span-4 space-y-6">
