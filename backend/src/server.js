@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import dossierRoutes from './routes/dossiers.js';
 import adminRoutes from './routes/admin.js';
 import exportRoutes from './routes/export.js';
+import { query } from './config/db.js';
 
 dotenv.config();
 
@@ -42,8 +43,13 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/export', exportRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', async (req, res) => {
+  try {
+    const result = await query('SELECT COUNT(*)::int AS dossiers FROM dossiers');
+    res.json({ status: 'ok', database: 'connected', dossiers: result.rows[0].dossiers, timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(503).json({ status: 'error', database: 'unavailable', timestamp: new Date().toISOString() });
+  }
 });
 
 // 404 handler

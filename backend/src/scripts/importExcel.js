@@ -36,7 +36,7 @@ function canonicalCommercialName(value) {
 
 function recordKey(row) {
   const date = row.date_saisie instanceof Date
-    ? row.date_saisie.toISOString().slice(0, 10)
+    ? `${row.date_saisie.getFullYear()}-${String(row.date_saisie.getMonth() + 1).padStart(2, '0')}-${String(row.date_saisie.getDate()).padStart(2, '0')}`
     : (clean(row.date_saisie).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || clean(row.date_saisie));
   return [
     clean(row.numero_valeur), clean(row.banque), Number(row.montant).toFixed(2),
@@ -227,7 +227,13 @@ async function main() {
          ) AS actions
          FROM dossiers d`,
       );
-      const obsolete = databaseRows.rows.filter((row) => !sourceKeys.has(recordKey(row)));
+      const retainedKeys = new Set();
+      const obsolete = databaseRows.rows.filter((row) => {
+        const key = recordKey(row);
+        if (!sourceKeys.has(key) || retainedKeys.has(key)) return true;
+        retainedKeys.add(key);
+        return false;
+      });
       if (obsolete.length) {
         const backupDir = resolve('backups');
         mkdirSync(backupDir, { recursive: true });
