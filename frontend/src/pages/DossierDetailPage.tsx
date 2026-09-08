@@ -264,7 +264,7 @@ export default function DossierDetailPage() {
 
         {dossier.observations && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-gray-500 mb-1">Observations</p>
+            <p className="text-xs text-gray-500 mb-1">Commentaire Excel et dates</p>
             <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{dossier.observations}</p>
           </div>
         )}

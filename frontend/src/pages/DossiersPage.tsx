@@ -327,6 +327,7 @@ export default function DossiersPage() {
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Nom du tiré</Th>
+                <Th>Commentaire Excel</Th>
                 <Th>Relation</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>
@@ -351,6 +352,9 @@ export default function DossiersPage() {
                   </Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
+                  <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
+                    {d.observations?.split(' | Date facture :')[0] || '-'}
+                  </Td>
                   <Td className="text-gray-600">{d.relation === 'CD' ? 'CD' : 'CDC'}</Td>
                   <Td className="text-gray-600 max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
                   <Td><StatusBadge statut={d.statut} /></Td>

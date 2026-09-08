@@ -38,6 +38,18 @@ try {
      WHERE u.role <> 'commercial' OR u.actif = false`,
   );
   console.log(`Affectations invalides : ${isolation.rows[0].violations}`);
+  const observations = await pool.query(
+    `SELECT COUNT(*)::int AS dossiers,
+            COUNT(DISTINCT observations)::int AS commentaires_distincts,
+            COUNT(*) FILTER (WHERE observations = '')::int AS commentaires_vides
+     FROM dossiers`,
+  );
+  console.log('Commentaires :', observations.rows[0]);
+  const frequent = await pool.query(
+    `SELECT observations, COUNT(*)::int AS occurrences
+     FROM dossiers GROUP BY observations ORDER BY occurrences DESC, observations LIMIT 10`,
+  );
+  console.table(frequent.rows);
 } finally {
   await pool.end();
 }

@@ -132,6 +132,7 @@ export default function CommercialPage() {
                 <Th align="right">Montant</Th>
                 <Th>N Valeur</Th>
                 <Th>Nom du tiré</Th>
+                <Th>Commentaire Excel</Th>
                 <Th>Statut</Th>
                 <Th align="center">Jours</Th>
                 <Th></Th>
@@ -145,6 +146,9 @@ export default function CommercialPage() {
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
+                  <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
+                    {d.observations?.split(' | Date facture :')[0] || '-'}
+                  </Td>
                   <Td><StatusBadge statut={d.statut} /></Td>
                   <Td align="center">
                     <span
