@@ -237,6 +237,8 @@ export default function DossierDetailPage() {
         {/* Infos */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
           <InfoField icon={Calendar} label="Date de saisie" value={formatDate(dossier.date_saisie)} />
+          <InfoField icon={Calendar} label="Date facture" value={dossier.date_facture ? formatDate(dossier.date_facture) : '-'} />
+          <InfoField icon={Calendar} label="Échéance" value={dossier.date_echeance ? formatDate(dossier.date_echeance) : '-'} />
           <InfoField icon={Building2} label="Banque" value={dossier.banque} />
           <InfoField icon={Hash} label="Montant" value={formatMontant(dossier.montant)} bold />
           <InfoField
@@ -264,7 +266,7 @@ export default function DossierDetailPage() {
 
         {dossier.observations && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-gray-500 mb-1">Commentaire Excel et dates</p>
+            <p className="text-xs text-gray-500 mb-1">Observation</p>
             <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{dossier.observations}</p>
           </div>
         )}

@@ -50,6 +50,12 @@ try {
      FROM dossiers GROUP BY observations ORDER BY occurrences DESC, observations LIMIT 10`,
   );
   console.table(frequent.rows);
+  const dates = await pool.query(
+    `SELECT COUNT(*) FILTER (WHERE date_facture IS NOT NULL)::int AS dates_facture,
+            COUNT(*) FILTER (WHERE date_echeance IS NOT NULL)::int AS dates_echeance
+     FROM dossiers`,
+  );
+  console.log('Dates Excel :', dates.rows[0]);
 } finally {
   await pool.end();
 }

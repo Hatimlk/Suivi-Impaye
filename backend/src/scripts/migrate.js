@@ -31,6 +31,10 @@ async function migrate() {
     await client.query(migration2);
     console.log('Migration 002 terminee: donnees initiales inserees');
 
+    const migration3 = readFileSync(join(__dirname, '../../migrations/003_add_dossier_dates.sql'), 'utf8');
+    await client.query(migration3);
+    console.log('Migration 003 terminee: dates facture et echeance ajoutees');
+
     // Creer l'admin par defaut
     const adminExists = await client.query("SELECT id FROM users WHERE email = 'admin@gadimat.ma'");
     if (adminExists.rows.length === 0) {

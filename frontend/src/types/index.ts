@@ -22,6 +22,8 @@ export type Relation = 'CD' | 'CDC';
 export interface Dossier {
   id: string;
   date_saisie: string;
+  date_facture: string | null;
+  date_echeance: string | null;
   banque: string;
   montant: number;
   type_valeur: TypeValeur;

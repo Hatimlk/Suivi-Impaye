@@ -11,6 +11,7 @@ router.get('/excel', async (req, res) => {
   try {
     const conditions = [];
     const params = [];
+    let idx = 1;
     if (req.user.role === 'commercial') {
       conditions.push(`d.commercial_id = $${idx}`); params.push(req.user.id); idx++;
     }
@@ -26,7 +27,7 @@ router.get('/excel', async (req, res) => {
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     const result = await query(
-      `SELECT d.date_saisie, d.banque, d.montant, d.type_valeur, d.numero_valeur,
+      `SELECT d.date_saisie, d.date_facture, d.date_echeance, d.banque, d.montant, d.type_valeur, d.numero_valeur,
               d.nom_tire, d.relation, d.observations, u.nom as commercial, d.statut,
               d.date_derniere_action, d.date_creation
        FROM dossiers d LEFT JOIN users u ON d.commercial_id = u.id
@@ -36,13 +37,15 @@ router.get('/excel', async (req, res) => {
 
     const data = result.rows.map(r => ({
       'Date': r.date_saisie,
+      'Date facture': r.date_facture,
+      'Échéance': r.date_echeance,
       'Banque': r.banque,
       'Montant': parseFloat(r.montant),
       'Type': r.type_valeur,
       'N Valeur': r.numero_valeur,
       'Nom du tire': r.nom_tire,
       'Relation': r.relation,
-      'Observations': r.observations,
+      'Observation': r.observations,
       'Commercial': r.commercial,
       'Statut': r.statut,
       'Derniere action': r.date_derniere_action,

@@ -327,7 +327,7 @@ export default function DossiersPage() {
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Nom du tiré</Th>
-                <Th>Commentaire Excel</Th>
+                <Th>Observation</Th>
                 <Th>Relation</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>

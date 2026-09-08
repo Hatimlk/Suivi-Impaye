@@ -132,7 +132,7 @@ export default function CommercialPage() {
                 <Th align="right">Montant</Th>
                 <Th>N Valeur</Th>
                 <Th>Nom du tiré</Th>
-                <Th>Commentaire Excel</Th>
+                <Th>Observation</Th>
                 <Th>Statut</Th>
                 <Th align="center">Jours</Th>
                 <Th></Th>

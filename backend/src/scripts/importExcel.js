@@ -127,6 +127,8 @@ function parseWorkbook(filePath) {
         feuille: sheetName,
         ligne: index + 1,
         date_saisie: echeance || facture,
+        date_facture: facture,
+        date_echeance: echeance,
         banque: clean(row[indexes.banque]) || 'N/A',
         montant,
         type_valeur: mode === 'T' ? 'LCN' : 'CHQ',
@@ -202,16 +204,22 @@ async function main() {
         [row.numero_valeur, row.banque, row.montant, row.nom_tire, row.date_saisie],
       );
       if (existing.rowCount) {
+        await client.query(
+          `UPDATE dossiers SET date_facture = $1, date_echeance = $2, observations = $3
+           WHERE id = $4`,
+          [row.date_facture, row.date_echeance, row.observations, existing.rows[0].id],
+        );
         duplicates++;
         continue;
       }
       await client.query(
         `INSERT INTO dossiers
-          (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation,
-           observations, commercial_id, statut)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [row.date_saisie, row.banque, row.montant, row.type_valeur, row.numero_valeur,
-          row.nom_tire, row.relation, row.observations, commercialId, row.statut],
+          (date_saisie, date_facture, date_echeance, banque, montant, type_valeur,
+           numero_valeur, nom_tire, relation, observations, commercial_id, statut)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [row.date_saisie, row.date_facture, row.date_echeance, row.banque, row.montant,
+          row.type_valeur, row.numero_valeur, row.nom_tire, row.relation, row.observations,
+          commercialId, row.statut],
       );
       imported++;
     }
