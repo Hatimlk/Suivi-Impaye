@@ -197,7 +197,7 @@ export default function DerogationPage() {
           <Table>
             <Thead>
               <tr>
-                <Th>Date</Th>
+                <Th>Date de facture</Th>
                 <Th>Banque</Th>
                 <Th align="right">Montant</Th>
                 <Th>Val</Th>
@@ -211,7 +211,7 @@ export default function DerogationPage() {
             <Tbody>
               {dossiers.map((d) => (
                 <Tr key={d.id}>
-                  <Td>{formatDate(d.date_saisie)}</Td>
+                  <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
                   <Td>

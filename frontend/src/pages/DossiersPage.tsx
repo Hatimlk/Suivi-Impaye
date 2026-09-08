@@ -375,14 +375,14 @@ export default function DossiersPage() {
                     <span
                       className={cn(
                         'text-xs font-semibold px-2 py-0.5 rounded-md inline-block',
-                        joursDepuis(d.date_saisie) >= 30
+                        joursDepuis(d.date_echeance || d.date_saisie) >= 30
                           ? 'bg-red-50 text-red-700 border border-red-200'
-                          : joursDepuis(d.date_saisie) >= 7
+                          : joursDepuis(d.date_echeance || d.date_saisie) >= 7
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
                           : 'bg-gray-100 text-gray-700'
                       )}
                     >
-                      {joursDepuis(d.date_saisie)}j
+                      {joursDepuis(d.date_echeance || d.date_saisie)}j
                     </span>
                   </Td>
                   <Td align="center">

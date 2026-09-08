@@ -475,7 +475,7 @@ export default function DashboardPage() {
   useEffect(() => {
     Promise.all([
       api.getStats().catch(() => null),
-      api.getDossiers({ limit: '6', sort: 'date_saisie', order: 'DESC' }).catch(() => ({ dossiers: [] })),
+      api.getDossiers({ limit: '6', sort: 'date_facture', order: 'DESC' }).catch(() => ({ dossiers: [] })),
     ])
       .then(([statsRes, dossiersRes]) => {
         setStats(statsRes);
@@ -484,8 +484,8 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText('GAD-2026-IMP');
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
@@ -523,6 +523,14 @@ export default function DashboardPage() {
 
   const chqData = stats.parType.find((t) => t.type_valeur === 'CHQ') || { count: 0, total_montant: 0 };
   const lcnData = stats.parType.find((t) => t.type_valeur === 'LCN') || { count: 0, total_montant: 0 };
+  const regularises = stats.parStatut.filter((s) => s.statut.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('regularise'));
+  const regulariseCount = regularises.reduce((sum, item) => sum + Number(item.count), 0);
+  const regulariseAmount = regularises.reduce((sum, item) => sum + Number(item.total_montant), 0);
+  const regulariseRate = stats.total.count ? Math.round((regulariseCount / stats.total.count) * 100) : 0;
+  const contentieuxCount = stats.parStatut
+    .filter((s) => s.statut.toLowerCase().includes('contentieux'))
+    .reduce((sum, item) => sum + Number(item.count), 0);
+  const portfolioYear = stats.total.date_reference ? new Date(stats.total.date_reference).getFullYear() : new Date().getFullYear();
 
   return (
     <div className="space-y-6">
@@ -568,7 +576,7 @@ export default function DashboardPage() {
             {/* Entity Title */}
             <div>
               <h2 className="text-lg font-bold text-gray-900">GADIMAT S.A.</h2>
-              <p className="text-xs text-gray-500 font-medium mt-0.5">Portefeuille Impayés 2026</p>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">Portefeuille des impayés</p>
             </div>
 
             {/* Quick Actions */}
@@ -595,7 +603,7 @@ export default function DashboardPage() {
 
               <div className="flex justify-between items-center py-1 border-b border-gray-50">
                 <span className="text-gray-500">Date référence</span>
-                <span className="font-semibold text-gray-900">25 Juillet 2026</span>
+                <span className="font-semibold text-gray-900">{stats.total.date_reference ? formatDate(stats.total.date_reference) : '-'}</span>
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-gray-50">
@@ -606,17 +614,17 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center py-1 border-b border-gray-50">
                 <span className="text-gray-500">ID Portefeuille</span>
                 <button
-                  onClick={handleCopyCode}
+                  onClick={() => handleCopyCode(`GAD-${portfolioYear}-IMP`)}
                   className="flex items-center gap-1 font-mono font-bold text-brand-600 hover:text-brand-700 transition cursor-pointer"
                   title="Cliquer pour copier"
                 >
-                  <span>GAD-2026-IMP</span>
+                  <span>GAD-{portfolioYear}-IMP</span>
                   {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                 </button>
               </div>
 
               <div className="flex justify-between items-center py-1">
-                <span className="text-gray-500">Total Encaissement</span>
+                <span className="text-gray-500">Total des impayés</span>
                 <span className="font-mono font-extrabold text-emerald-700 text-sm">
                   {formatMontant(stats.total.montant)}
                 </span>
@@ -628,7 +636,7 @@ export default function DashboardPage() {
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">Répartition Statuts</h3>
               <div className="flex flex-wrap gap-1.5">
                 <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 font-semibold text-[11px] rounded-lg border border-emerald-200/50">
-                  {stats.total.count} Dossiers Régularisés
+                  {regulariseCount} dossiers régularisés
                 </span>
                 <span className="px-2.5 py-1 bg-brand-50 text-brand-700 font-semibold text-[11px] rounded-lg border border-brand-200/50">
                   {chqData.count} Chèques
@@ -696,8 +704,8 @@ export default function DashboardPage() {
               </div>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Taux Régularisation</p>
-                <p className="text-lg font-extrabold text-gray-900 leading-tight">100 % OK</p>
-                <p className="text-xs font-semibold text-emerald-600 truncate">Aucun contentieux</p>
+                <p className="text-lg font-extrabold text-gray-900 leading-tight">{regulariseRate} %</p>
+                <p className="text-xs font-semibold text-emerald-600 truncate">{contentieuxCount} dossier(s) en contentieux</p>
               </div>
             </Card>
           </div>
@@ -711,7 +719,7 @@ export default function DashboardPage() {
             {/* Gauge & Calendar Column */}
             <div className="lg:col-span-4 space-y-6">
               <Card className="p-4">
-                <ProgressGauge value={100} label="Objectif Régularisation" subtext="877 165,27 DH encaissés" />
+                <ProgressGauge value={regulariseRate} label="Taux de régularisation" subtext={`${regulariseCount} dossier(s) · ${formatMontant(regulariseAmount)}`} />
               </Card>
 
               <Card className="p-4">
@@ -788,7 +796,7 @@ export default function DashboardPage() {
             <Table>
               <Thead>
                 <tr>
-                  <Th>Date</Th>
+                  <Th>Date de facture</Th>
                   <Th align="center">Jours</Th>
                   <Th>N° Valeur</Th>
                   <Th>Type</Th>
@@ -809,19 +817,19 @@ export default function DashboardPage() {
                 ) : (
                   filteredRecent.map((d) => (
                     <Tr key={d.id} className="hover:bg-brand-50/30 transition-colors">
-                      <Td className="text-xs text-gray-500">{formatDate(d.date_saisie)}</Td>
+                      <Td className="text-xs text-gray-500">{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
                       <Td align="center">
                         <span
                           className={cn(
                             'text-xs font-semibold px-2 py-0.5 rounded-md inline-block',
-                            joursDepuis(d.date_saisie) >= 30
+                            joursDepuis(d.date_echeance || d.date_saisie) >= 30
                               ? 'bg-red-50 text-red-700 border border-red-200'
-                              : joursDepuis(d.date_saisie) >= 7
+                              : joursDepuis(d.date_echeance || d.date_saisie) >= 7
                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
                               : 'bg-gray-100 text-gray-700'
                           )}
                         >
-                          {joursDepuis(d.date_saisie)}j
+                          {joursDepuis(d.date_echeance || d.date_saisie)}j
                         </span>
                       </Td>
                       <Td className="font-mono text-xs font-bold text-gray-800">{d.numero_valeur}</Td>

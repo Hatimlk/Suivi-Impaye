@@ -70,7 +70,7 @@ export interface EvolutionPoint {
 }
 
 export interface DashboardStats {
-  total: { count: number; montant: number };
+  total: { count: number; montant: number; date_reference?: string | null };
   parStatut: { statut: string; count: number; total_montant: number }[];
   parBanque: { banque: string; count: number; total_montant: number }[];
   parCommercial: { commercial_nom: string; count: number; total_montant: number }[];

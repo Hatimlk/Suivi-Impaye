@@ -3,7 +3,7 @@ const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api';
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('accessToken');
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
   if (token) {

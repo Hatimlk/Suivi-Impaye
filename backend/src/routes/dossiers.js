@@ -262,7 +262,8 @@ router.get('/stats', async (req, res) => {
     ] = await Promise.all([
       // Total en cours
       query(
-        `SELECT COUNT(*) as count, COALESCE(SUM(montant), 0) as total_montant
+        `SELECT COUNT(*) as count, COALESCE(SUM(montant), 0) as total_montant,
+                MAX(date_echeance) as date_reference
          FROM dossiers d ${whereClause}`,
         params
       ),
@@ -391,6 +392,7 @@ router.get('/stats', async (req, res) => {
       total: {
         count: parseInt(totalResult.rows[0].count),
         montant: parseFloat(totalResult.rows[0].total_montant),
+        date_reference: totalResult.rows[0].date_reference,
       },
       parStatut: parStatutResult.rows,
       parBanque: parBanqueResult.rows,
