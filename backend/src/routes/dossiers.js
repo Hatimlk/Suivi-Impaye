@@ -14,6 +14,28 @@ import {
 const router = Router();
 router.use(authenticateToken);
 
+// GET /api/dossiers/partenaires - Liste distincte pour les filtres
+router.get('/partenaires', async (req, res) => {
+  try {
+    const params = [];
+    const commercialFilter = req.user.role === 'commercial'
+      ? 'AND commercial_id = $1'
+      : '';
+    if (commercialFilter) params.push(req.user.id);
+    const result = await query(
+      `SELECT DISTINCT nom_tire AS partenaire
+       FROM dossiers
+       WHERE nom_tire IS NOT NULL AND TRIM(nom_tire) <> '' ${commercialFilter}
+       ORDER BY partenaire`,
+      params,
+    );
+    res.json(result.rows.map((row) => row.partenaire));
+  } catch (err) {
+    console.error('Erreur liste partenaires:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // GET /api/dossiers - Liste avec filtres, pagination, recherche
 router.get('/', async (req, res) => {
   try {

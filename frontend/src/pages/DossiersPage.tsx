@@ -33,6 +33,7 @@ export default function DossiersPage() {
   const [commerciaux, setCommerciaux] = useState<{ id: string; nom: string }[]>([]);
   const [banques, setBanques] = useState<string[]>([]);
   const [statuts, setStatuts] = useState<string[]>([]);
+  const [partenaires, setPartenaires] = useState<string[]>([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editDossier, setEditDossier] = useState<Dossier | null>(null);
@@ -50,10 +51,12 @@ export default function DossiersPage() {
       api.getUsers().catch(() => []),
       api.getBanques().catch(() => []),
       api.getStatuts().catch(() => []),
-    ]).then(([users, b, s]) => {
+      api.getPartenaires().catch(() => []),
+    ]).then(([users, b, s, p]) => {
       setCommerciaux(users.filter((u: any) => u.role === 'commercial' && u.actif));
       setBanques(b.map((x: any) => x.nom));
       setStatuts(s.map((x: any) => x.libelle));
+      setPartenaires(p);
     });
   }, []);
 
@@ -249,12 +252,16 @@ export default function DossiersPage() {
 
         {showFilters && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
-            <Input
+            <Select
               label="Partenaire"
               value={filters.nom_tire || ''}
               onChange={(e) => setFilter('nom_tire', e.target.value)}
-              placeholder="Filtrer par partenaire"
-            />
+            >
+              <option value="">Tous les partenaires</option>
+              {partenaires.map((partenaire) => (
+                <option key={partenaire} value={partenaire}>{partenaire}</option>
+              ))}
+            </Select>
             <Select
               label="Commercial"
               value={filters.commercial_id || ''}
