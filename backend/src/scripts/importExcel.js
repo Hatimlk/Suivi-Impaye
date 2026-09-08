@@ -1,212 +1,255 @@
-import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import pg from 'pg';
-import * as XLSX from 'xlsx';
+import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+import XLSX from 'xlsx';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config();
+
 const { Pool } = pg;
-
+const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye';
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye',
+  connectionString: dbUrl,
+  ssl: dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
-// Mapping colonnes Excel vers schema
-const COLUMN_MAP = {
-  'Date': 'date_saisie',
-  'date': 'date_saisie',
-  'BQ': 'banque',
-  'Banque': 'banque',
-  'banque': 'banque',
-  'Mt': 'montant',
-  'Montant': 'montant',
-  'montant': 'montant',
-  'Val': 'type_valeur',
-  'Type': 'type_valeur',
-  'type_valeur': 'type_valeur',
-  'N Val': 'numero_valeur',
-  'N° Valeur': 'numero_valeur',
-  'numero_valeur': 'numero_valeur',
-  'Nom du tire': 'nom_tire',
-  'Nom tire': 'nom_tire',
-  'nom_tire': 'nom_tire',
-  'Relation': 'relation',
-  'relation': 'relation',
-  'Observations': 'observations',
-  'observations': 'observations',
-  'Com': 'commercial_nom',
-  'Commercial': 'commercial_nom',
-  'commercial': 'commercial_nom',
-  'Statut': 'statut',
-  'statut': 'statut',
-  'Action 1': 'action_1',
-  'Action 2': 'action_2',
-  'Action 3': 'action_3',
-};
+const DATA_SHEETS = new Set([
+  'NABIL', 'OMAR', 'DIRECTION', 'FAYCAL', 'NAOUFAL',
+  'FAHD', 'GII', 'LAHCEN', 'RACHID', 'OUSSAMA',
+]);
 
-function mapHeader(header) {
-  const trimmed = String(header).trim();
-  return COLUMN_MAP[trimmed] || trimmed;
+function clean(value) {
+  return value == null ? '' : String(value).replace(/\s+/g, ' ').trim();
 }
 
-function parseFrenchDate(dateStr) {
-  if (!dateStr) return null;
-  const str = String(dateStr).trim();
-  // Format DD/MM/YYYY
-  const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (match) {
-    return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
-  }
-  // Format YYYY-MM-DD
-  const match2 = str.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-  if (match2) {
-    return `${match2[1]}-${match2[2].padStart(2, '0')}-${match2[3].padStart(2, '0')}`;
-  }
-  // Excel serial date
-  const num = parseFloat(str);
-  if (!isNaN(num) && num > 40000 && num < 50000) {
-    const d = new Date((num - 25569) * 86400 * 1000);
-    return d.toISOString().split('T')[0];
-  }
-  return null;
+function normalizeName(value) {
+  return clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-async function importExcel() {
-  const filePath = process.argv[2];
-  if (!filePath) {
-    console.error('Usage: node importExcel.js <chemin-vers-fichier.xlsx>');
-    process.exit(1);
+function canonicalCommercialName(value) {
+  const name = clean(value);
+  return normalizeName(name) === 'dirct' ? 'DIRECTION' : name;
+}
+
+function recordKey(row) {
+  const date = row.date_saisie instanceof Date
+    ? row.date_saisie.toISOString().slice(0, 10)
+    : (clean(row.date_saisie).match(/^\d{4}-\d{2}-\d{2}/)?.[0] || clean(row.date_saisie));
+  return [
+    clean(row.numero_valeur), clean(row.banque), Number(row.montant).toFixed(2),
+    clean(row.nom_tire), date,
+  ].join('\u001f');
+}
+
+function parseDate(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  const text = clean(value);
+  let match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2}|\d{4})$/);
+  if (!match) return null;
+  let year = Number(match[3]);
+  if (year < 100) year += year >= 70 ? 1900 : 2000;
+  const month = Number(match[2]);
+  const day = Number(match[1]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function parseAmount(value) {
+  if (typeof value === 'number') return value;
+  const text = clean(value).replace(/\s/g, '').replace(/,/g, '');
+  const amount = Number(text);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function findHeaderRow(rows) {
+  return rows.findIndex((row) => row.some((cell) => normalizeName(cell) === 'nom client'));
+}
+
+function parseWorkbook(filePath) {
+  const workbook = XLSX.readFile(filePath, { cellDates: true });
+  const records = [];
+  const skipped = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    if (!DATA_SHEETS.has(sheetName.toUpperCase())) continue;
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: null, raw: true });
+    const headerIndex = findHeaderRow(rows);
+    if (headerIndex < 0) {
+      skipped.push({ feuille: sheetName, raison: 'En-tête introuvable' });
+      continue;
+    }
+    const headers = rows[headerIndex].map(normalizeName);
+    const column = (name) => headers.indexOf(normalizeName(name));
+    const indexes = {
+      client: column('NOM CLIENT'), commercial: column('COM'), facture: column('Dte Facture'),
+      mode: column('M'), banque: column('Bqe'), numero: column('N°'),
+      echeance: column('Échéance'), montant: column('Montant'), commentaire: column('Commentaire'),
+    };
+
+    for (let index = headerIndex + 1; index < rows.length; index++) {
+      const row = rows[index];
+      const client = clean(row[indexes.client]);
+      const commercial = canonicalCommercialName(clean(row[indexes.commercial]) || sheetName);
+      const numero = clean(row[indexes.numero]);
+      const montant = parseAmount(row[indexes.montant]);
+      const mode = clean(row[indexes.mode]).toUpperCase();
+
+      // Les totaux et tableaux historiques n'ont pas la combinaison minimale d'une valeur impayée.
+      if (!client || /\bTOTAL\b/i.test(client) || montant == null) continue;
+      if (!numero && ['C', 'T'].includes(mode)) {
+        skipped.push({ feuille: sheetName, ligne: index + 1, raison: 'Numéro de valeur manquant', montant });
+        continue;
+      }
+      if (!numero) continue;
+      if (!['C', 'T'].includes(mode)) {
+        skipped.push({ feuille: sheetName, ligne: index + 1, numero, raison: `Mode de valeur inconnu: ${mode || '(vide)'}`, montant });
+        continue;
+      }
+
+      const facture = parseDate(row[indexes.facture]);
+      const echeance = parseDate(row[indexes.echeance]);
+      if (!echeance && !facture) {
+        skipped.push({ feuille: sheetName, ligne: index + 1, numero, raison: 'Date invalide' });
+        continue;
+      }
+      const commentaire = clean(row[indexes.commentaire]);
+      const observations = [
+        commentaire,
+        facture ? `Date facture : ${facture.split('-').reverse().join('/')}` : '',
+        echeance ? `Échéance : ${echeance.split('-').reverse().join('/')}` : '',
+      ].filter(Boolean).join(' | ');
+
+      records.push({
+        feuille: sheetName,
+        ligne: index + 1,
+        date_saisie: echeance || facture,
+        banque: clean(row[indexes.banque]) || 'N/A',
+        montant,
+        type_valeur: mode === 'T' ? 'LCN' : 'CHQ',
+        numero_valeur: numero,
+        nom_tire: client,
+        relation: client.includes(':') ? 'CDC' : 'CD',
+        observations,
+        commercial_nom: commercial,
+        statut: 'Attente retour du client',
+      });
+    }
+  }
+  return { records, skipped };
+}
+
+async function ensureCommercial(client, commercialName, map) {
+  const key = normalizeName(commercialName);
+  if (map.has(key)) return map.get(key);
+  const slug = key.replace(/[^a-z0-9]+/g, '.') || 'non.assigne';
+  const password = await bcrypt.hash(`${crypto.randomUUID()}-${crypto.randomUUID()}`, 10);
+  const result = await client.query(
+    `INSERT INTO users (nom, email, mot_de_passe_hash, role, actif)
+     VALUES ($1, $2, $3, 'commercial', true)
+     ON CONFLICT (email) DO UPDATE SET nom = EXCLUDED.nom
+     RETURNING id`,
+    [commercialName, `${slug}@gadimat.ma`, password],
+  );
+  map.set(key, result.rows[0].id);
+  return result.rows[0].id;
+}
+
+async function main() {
+  const filePath = process.argv.find((arg, index) => index > 1 && !arg.startsWith('--'));
+  const dryRun = process.argv.includes('--dry-run');
+  const replace = process.argv.includes('--replace');
+  if (!filePath || !existsSync(filePath)) {
+    console.error('Usage: node importExcel.js <fichier.xlsx> [--dry-run]');
+    process.exitCode = 1;
+    return;
   }
 
-  if (!existsSync(filePath)) {
-    console.error(`Fichier introuvable: ${filePath}`);
-    process.exit(1);
-  }
+  const { records, skipped: invalidRows } = parseWorkbook(filePath);
+  const totals = records.reduce((sum, row) => sum + row.montant, 0);
+  console.log(`${records.length} lignes valides, total ${totals.toFixed(2)} MAD, ${invalidRows.length} ligne(s) invalide(s).`);
+  invalidRows.forEach((row) => console.log(`! ${row.feuille} ligne ${row.ligne || '-'}: ${row.raison}${row.numero ? ` (N° ${row.numero})` : ''}`));
+  const byCommercial = Object.entries(records.reduce((acc, row) => {
+    acc[row.commercial_nom] = (acc[row.commercial_nom] || 0) + row.montant;
+    return acc;
+  }, {}));
+  byCommercial.forEach(([name, amount]) => console.log(`- ${name}: ${amount.toFixed(2)} MAD`));
+  if (dryRun) return;
 
   const client = await pool.connect();
   try {
-    console.log(`Lecture du fichier: ${filePath}`);
-    const wb = XLSX.readFile(filePath);
-    const sheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[sheetName];
-    const rawData = XLSX.utils.sheet_to_json(sheet);
-
-    if (rawData.length === 0) {
-      console.log('Le fichier est vide ou sans donnees exploitables');
-      return;
-    }
-
-    // Mapper les en-tetes
-    const firstRow = rawData[0];
-    const headers = Object.keys(firstRow);
-    console.log('Colonnes trouvees:', headers.join(', '));
-
-    const mappedData = rawData.map(row => {
-      const mapped = {};
-      for (const [origKey, value] of Object.entries(row)) {
-        const mappedKey = mapHeader(origKey);
-        mapped[mappedKey] = value;
+    await client.query('BEGIN');
+    const userRows = await client.query("SELECT id, nom FROM users WHERE role = 'commercial'");
+    for (const user of userRows.rows) {
+      if (normalizeName(user.nom) === 'dirct' || (normalizeName(user.nom) === 'direction' && user.email === 'dirct@gadimat.ma')) {
+        await client.query("UPDATE users SET nom = 'DIRECTION', email = 'direction@gadimat.ma' WHERE id = $1", [user.id]);
+        user.nom = 'DIRECTION';
       }
-      return mapped;
-    });
-
-    // Recuperer les commerciaux existants
-    const commerciauxResult = await client.query("SELECT id, nom FROM users WHERE role = 'commercial'");
-    const commerciauxMap = {};
-    for (const c of commerciauxResult.rows) {
-      commerciauxMap[c.nom.toLowerCase()] = c.id;
     }
-
-    // Recuperer le statut par defaut
-    const defaultStatut = 'Attente retour du client';
-
+    const commercialMap = new Map(userRows.rows.map((row) => [normalizeName(row.nom), row.id]));
     let imported = 0;
-    let skipped = 0;
+    let duplicates = 0;
 
-    for (const row of mappedData) {
-      try {
-        const numeroValeur = String(row.numero_valeur || '').trim();
-        if (!numeroValeur) {
-          skipped++;
-          continue;
-        }
-
-        // Verifier doublon
-        const exists = await client.query('SELECT id FROM dossiers WHERE numero_valeur = $1', [numeroValeur]);
-        if (exists.rows.length > 0) {
-          skipped++;
-          continue;
-        }
-
-        // Trouver le commercial
-        let commercialId = null;
-        if (row.commercial_nom) {
-          const nom = String(row.commercial_nom).trim().toLowerCase();
-          commercialId = commerciauxMap[nom] || null;
-        }
-
-        const montant = parseFloat(String(row.montant || '0').replace(/[^\d.,\-]/g, '').replace(',', '.')) || 0;
-        const typeValeur = String(row.type_valeur || 'CHQ').trim().toUpperCase();
-        const validType = ['CHQ', 'LCN'].includes(typeValeur) ? typeValeur : 'CHQ';
-        const relation = String(row.relation || 'CD').trim().toUpperCase();
-        const validRelation = ['CD', 'CDC'].includes(relation) ? relation : 'CD';
-        const dateSaisie = parseFrenchDate(row.date_saisie) || new Date().toISOString().split('T')[0];
-
-        const result = await client.query(
-          `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-          [
-            dateSaisie,
-            String(row.banque || 'N/A').trim(),
-            montant,
-            validType,
-            numeroValeur,
-            String(row.nom_tire || '').trim(),
-            validRelation,
-            String(row.observations || '').trim(),
-            commercialId,
-            String(row.statut || defaultStatut).trim(),
-          ]
-        );
-
-        const dossierId = result.rows[0].id;
-
-        // Inserer les actions (Action 1, 2, 3)
-        for (let i = 1; i <= 3; i++) {
-          const actionContent = row[`action_${i}`];
-          if (actionContent && String(actionContent).trim()) {
-            await client.query(
-              'INSERT INTO actions (dossier_id, contenu, type_action, date_action) VALUES ($1, $2, $3, NOW())',
-              [dossierId, String(actionContent).trim(), 'import']
-            );
-          }
-        }
-
-        // Mettre a jour la date derniere action si des actions existent
-        const actionCount = await client.query(
-          'SELECT COUNT(*) as c FROM actions WHERE dossier_id = $1', [dossierId]
-        );
-        if (parseInt(actionCount.rows[0].c) > 0) {
-          await client.query(
-            'UPDATE dossiers SET date_derniere_action = (SELECT MAX(date_action) FROM actions WHERE dossier_id = $1) WHERE id = $1',
-            [dossierId]
-          );
-        }
-
-        imported++;
-      } catch (err) {
-        console.error(`Erreur ligne importee:`, err.message);
-        skipped++;
+    for (const row of records) {
+      const commercialId = await ensureCommercial(client, row.commercial_nom, commercialMap);
+      const existing = await client.query(
+        `SELECT id FROM dossiers
+         WHERE numero_valeur = $1 AND banque = $2 AND montant = $3
+           AND nom_tire = $4 AND date_saisie = $5`,
+        [row.numero_valeur, row.banque, row.montant, row.nom_tire, row.date_saisie],
+      );
+      if (existing.rowCount) {
+        duplicates++;
+        continue;
       }
+      await client.query(
+        `INSERT INTO dossiers
+          (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation,
+           observations, commercial_id, statut)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [row.date_saisie, row.banque, row.montant, row.type_valeur, row.numero_valeur,
+          row.nom_tire, row.relation, row.observations, commercialId, row.statut],
+      );
+      imported++;
     }
 
-    console.log(`\nImport termine: ${imported} dossiers importes, ${skipped} ignorés`);
-  } catch (err) {
-    console.error('Erreur import:', err);
+    let removed = 0;
+    let backupPath = null;
+    if (replace) {
+      const sourceKeys = new Set(records.map(recordKey));
+      const databaseRows = await client.query(
+        `SELECT d.*, COALESCE(
+           (SELECT json_agg(a ORDER BY a.date_action) FROM actions a WHERE a.dossier_id = d.id),
+           '[]'::json
+         ) AS actions
+         FROM dossiers d`,
+      );
+      const obsolete = databaseRows.rows.filter((row) => !sourceKeys.has(recordKey(row)));
+      if (obsolete.length) {
+        const backupDir = resolve('backups');
+        mkdirSync(backupDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        backupPath = resolve(backupDir, `dossiers-avant-remplacement-${stamp}.json`);
+        writeFileSync(backupPath, JSON.stringify({ created_at: new Date().toISOString(), dossiers: obsolete }, null, 2));
+        await client.query('DELETE FROM dossiers WHERE id = ANY($1::uuid[])', [obsolete.map((row) => row.id)]);
+        removed = obsolete.length;
+      }
+    }
+    await client.query('COMMIT');
+    console.log(`Import terminé : ${imported} dossier(s) ajouté(s), ${duplicates} doublon(s) ignoré(s).`);
+    if (replace) console.log(`Remplacement : ${removed} ancien(s) dossier(s) supprimé(s).${backupPath ? ` Sauvegarde : ${backupPath}` : ''}`);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
   } finally {
     client.release();
-    await pool.end();
   }
 }
 
-importExcel();
+main().catch((error) => {
+  console.error('Échec de l’import :', error.message);
+  process.exitCode = 1;
+}).finally(() => pool.end());

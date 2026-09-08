@@ -156,8 +156,8 @@ router.get('/alerts', async (req, res) => {
        FROM dossiers d
        LEFT JOIN users u ON d.commercial_id = u.id
        ${whereBase ? whereBase + ' AND' : 'WHERE'}
-       d.date_derniere_action < NOW() - INTERVAL '${thresholdDays} days'
-       OR (d.date_derniere_action IS NULL AND d.date_creation < NOW() - INTERVAL '${thresholdDays} days')
+       (d.date_derniere_action < NOW() - INTERVAL '${thresholdDays} days'
+       OR (d.date_derniere_action IS NULL AND d.date_creation < NOW() - INTERVAL '${thresholdDays} days'))
        ORDER BY d.date_derniere_action ASC NULLS FIRST`,
       params
     );
@@ -623,6 +623,7 @@ router.put('/:id', validate(updateDossierSchema), async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
+    const dossier = existing.rows[0];
     if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
@@ -677,6 +678,7 @@ router.patch('/:id/statut', async (req, res) => {
       return res.status(404).json({ error: 'Dossier introuvable' });
     }
 
+    const dossier = existing.rows[0];
     if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) {
       return res.status(403).json({ error: 'Accès refusé' });
     }
