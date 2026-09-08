@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 const EMPTY_FORM = {
+  date_facture: '', date_echeance: '',
   banque: '', montant: '', type_valeur: 'CHQ', numero_valeur: '',
   nom_tire: '', relation: 'CD', observations: '', statut: 'Attente retour du client',
 };
@@ -93,6 +94,8 @@ export default function DossiersPage() {
   const openEditDossier = (d: Dossier) => {
     setEditDossier(d);
     setCreateForm({
+      date_facture: d.date_facture?.slice(0, 10) || '',
+      date_echeance: d.date_echeance?.slice(0, 10) || '',
       banque: d.banque,
       montant: String(d.montant),
       type_valeur: d.type_valeur,
@@ -114,7 +117,12 @@ export default function DossiersPage() {
     e.preventDefault();
     try {
       setCreateLoading(true);
-      const payload = { ...createForm, montant: parseFloat(createForm.montant) };
+      const payload = {
+        ...createForm,
+        montant: parseFloat(createForm.montant),
+        date_facture: createForm.date_facture || null,
+        date_echeance: createForm.date_echeance || null,
+      };
       if (editDossier) {
         await api.updateDossier(editDossier.id, payload);
       } else {
@@ -417,6 +425,18 @@ export default function DossiersPage() {
       <Modal open={showForm} onClose={closeForm} title={editDossier ? 'Modifier le dossier' : 'Nouveau dossier'}>
         <form onSubmit={handleSubmitForm} className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Date de facture"
+              type="date"
+              value={createForm.date_facture}
+              onChange={(e) => setCreateForm({ ...createForm, date_facture: e.target.value })}
+            />
+            <Input
+              label="Date d'échéance"
+              type="date"
+              value={createForm.date_echeance}
+              onChange={(e) => setCreateForm({ ...createForm, date_echeance: e.target.value })}
+            />
             <Select
               label="Banque *"
               value={createForm.banque}

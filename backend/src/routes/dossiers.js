@@ -642,11 +642,13 @@ router.post('/', validate(createDossierSchema), async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
-       VALUES (COALESCE($1::date, CURRENT_DATE), $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO dossiers (date_saisie, date_facture, date_echeance, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
+       VALUES (COALESCE($1::date, CURRENT_DATE), NULLIF($2, '')::date, NULLIF($3, '')::date, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         data.date_saisie,
+        data.date_facture || '',
+        data.date_echeance || '',
         data.banque,
         data.montant,
         data.type_valeur,

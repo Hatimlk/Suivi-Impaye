@@ -23,6 +23,8 @@ export const updateUserSchema = z.object({
 
 export const createDossierSchema = z.object({
   date_saisie: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date requis: YYYY-MM-DD').optional(),
+  date_facture: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date requis: YYYY-MM-DD').nullable().optional(),
+  date_echeance: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format date requis: YYYY-MM-DD').nullable().optional(),
   banque: z.string().min(1, 'Banque requise'),
   montant: z.number().min(0, 'Le montant doit être positif'),
   type_valeur: z.enum(['CHQ', 'LCN']),
@@ -36,6 +38,8 @@ export const createDossierSchema = z.object({
 
 export const updateDossierSchema = z.object({
   date_saisie: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  date_facture: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  date_echeance: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   banque: z.string().min(1).optional(),
   montant: z.number().min(0).optional(),
   type_valeur: z.enum(['CHQ', 'LCN']).optional(),
