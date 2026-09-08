@@ -81,6 +81,7 @@ export const api = {
   },
   getDossier: (id: string) => request<any>(`/dossiers/${id}`),
   getPartenaires: () => request<string[]>('/dossiers/partenaires'),
+  getCalendrier: () => request<any[]>('/dossiers/calendrier'),
   createDossier: (data: any) => request<any>('/dossiers', { method: 'POST', body: JSON.stringify(data) }),
   updateDossier: (id: string, data: any) =>
     request<any>(`/dossiers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

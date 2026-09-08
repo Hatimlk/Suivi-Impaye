@@ -36,6 +36,28 @@ router.get('/partenaires', async (req, res) => {
   }
 });
 
+// GET /api/dossiers/calendrier - Échéances réelles des dossiers
+router.get('/calendrier', async (req, res) => {
+  try {
+    const params = [];
+    const commercialFilter = req.user.role === 'commercial' ? 'AND d.commercial_id = $1' : '';
+    if (commercialFilter) params.push(req.user.id);
+    const result = await query(
+      `SELECT d.id, d.date_echeance, d.nom_tire, d.montant, d.type_valeur,
+              d.observations, d.statut, u.nom AS commercial_nom
+       FROM dossiers d
+       LEFT JOIN users u ON u.id = d.commercial_id
+       WHERE d.date_echeance IS NOT NULL ${commercialFilter}
+       ORDER BY d.date_echeance, d.nom_tire`,
+      params,
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erreur calendrier:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 // GET /api/dossiers - Liste avec filtres, pagination, recherche
 router.get('/', async (req, res) => {
   try {

@@ -72,34 +72,6 @@ function ProgressGauge({ value = 100, label = 'Taux de Régularisation', subtext
   );
 }
 
-// Map of scheduled events by YYYY-MM-DD
-const EVENTS_MAP: Record<string, Array<{ title: string; detail: string; amount?: string; type: string }>> = {
-  '2026-01-08': [
-    { title: 'Saisie Impayé HAJAR BOIS', detail: 'Effet impayé 107 479,13 DH - Action: A voir avec FAHD', amount: '107 479,13 DH', type: 'LCN' },
-  ],
-  '2026-01-26': [
-    { title: 'Réception & Saisie des Impayés', detail: '18 dossiers enregistrés (BMCI, BP, CAM, AWB, BMCE)', amount: '769 686,14 DH', type: 'GLOBAL' },
-  ],
-  '2026-02-16': [
-    { title: 'Virement STE DISAMA', detail: 'Action Lahcen: Vir reçu 50 000 / vir 20k le 16/02', amount: '20 000,00 DH', type: 'CHQ' },
-  ],
-  '2026-02-18': [
-    { title: 'Déplacement & Récupération FAHD', detail: 'AIT LAASRI IDDER - Contre Espèces / Déplacement Fahd', amount: '5 000,00 DH', type: 'LCN' },
-  ],
-  '2026-02-19': [
-    { title: 'Représentation STE MEDIA WOOD', detail: 'Action Faycal: Attente date représentation 19/02/26', amount: '43 557,00 DH', type: 'LCN' },
-  ],
-  '2026-03-30': [
-    { title: 'Chèque FREMBAL à verser', detail: 'Action Fahd: Cheq a verser 30/03/26', amount: '36 115,40 DH', type: 'CHQ' },
-  ],
-  '2026-04-02': [
-    { title: 'Espèces récupérées FAHD', detail: 'AIT LAASRI IDDER - Espèces récupérées par FAHD', amount: '5 000,00 DH', type: 'LCN' },
-  ],
-  '2026-04-30': [
-    { title: 'Virement reçu HAJAR BOIS', detail: 'Action Fahd: Vir reçu le 30/04/26', amount: '107 479,13 DH', type: 'LCN' },
-  ],
-};
-
 const MONTH_NAMES = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -109,11 +81,30 @@ const MONTH_NAMES = [
 function RelanceCalendar() {
   const navigate = useNavigate();
   const daysOfWeek = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  const now = new Date();
+  const [events, setEvents] = useState<Record<string, any[]>>({});
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(now.getMonth());
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
-  // Default month: Janvier 2026 (index 0) or current view
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(0); // 0 = Janvier
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [selectedDay, setSelectedDay] = useState<number | null>(26);
+  useEffect(() => {
+    api.getCalendrier().then((dossiers) => {
+      const grouped: Record<string, any[]> = {};
+      dossiers.forEach((dossier) => {
+        const date = String(dossier.date_echeance).slice(0, 10);
+        (grouped[date] ||= []).push(dossier);
+      });
+      setEvents(grouped);
+      const dates = Object.keys(grouped).sort();
+      const today = new Date().toISOString().slice(0, 10);
+      const nearest = dates.find((date) => date >= today) || dates[dates.length - 1];
+      if (nearest) {
+        const [year, month] = nearest.split('-').map(Number);
+        setCurrentYear(year);
+        setCurrentMonthIndex(month - 1);
+      }
+    }).catch(console.error);
+  }, []);
 
   const prevMonth = () => {
     if (currentMonthIndex === 0) {
@@ -146,7 +137,7 @@ function RelanceCalendar() {
     ? `${currentYear}-${monthStr}-${String(selectedDay).padStart(2, '0')}`
     : null;
 
-  const selectedEvents = selectedDateStr ? EVENTS_MAP[selectedDateStr] || [] : [];
+  const selectedEvents = selectedDateStr ? events[selectedDateStr] || [] : [];
 
   return (
     <div className="p-1 space-y-3">
@@ -197,8 +188,8 @@ function RelanceCalendar() {
         {Array.from({ length: totalDaysInMonth }).map((_, i) => {
           const day = i + 1;
           const dateKey = `${currentYear}-${monthStr}-${String(day).padStart(2, '0')}`;
-          const events = EVENTS_MAP[dateKey];
-          const hasEvents = !!events && events.length > 0;
+          const dayEvents = events[dateKey];
+          const hasEvents = !!dayEvents && dayEvents.length > 0;
           const isSelected = selectedDay === day;
 
           return (
@@ -248,16 +239,15 @@ function RelanceCalendar() {
                 <span>Aucune relance programmée pour ce jour.</span>
               </div>
             ) : (
-              selectedEvents.map((evt, idx) => (
-                <div key={idx} className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/50 space-y-1">
+              selectedEvents.map((evt) => (
+                <button key={evt.id} onClick={() => navigate(`/dossiers/${evt.id}`)} className="w-full text-left bg-slate-800/80 p-2 rounded-lg border border-slate-700/50 space-y-1 hover:border-brand-400 transition">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-brand-300">{evt.title}</span>
-                    {evt.amount && (
-                      <span className="text-[11px] font-mono font-bold text-emerald-400">{evt.amount}</span>
-                    )}
+                    <span className="text-xs font-bold text-brand-300">{evt.nom_tire}</span>
+                    <span className="text-[11px] font-mono font-bold text-emerald-400">{formatMontant(Number(evt.montant))}</span>
                   </div>
-                  <p className="text-[11px] text-slate-300 leading-tight">{evt.detail}</p>
-                </div>
+                  <p className="text-[11px] text-slate-300 leading-tight">{evt.type_valeur} · {evt.commercial_nom || 'Non assigné'} · {evt.statut}</p>
+                  {evt.observations && <p className="text-[10px] text-slate-400 truncate">{evt.observations.split(' | Date facture :')[0]}</p>}
+                </button>
               ))
             )}
           </div>
