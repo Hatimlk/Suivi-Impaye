@@ -202,7 +202,7 @@ export default function DerogationPage() {
                 <Th align="right">Montant</Th>
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
-                <Th>Nom du tiré</Th>
+                <Th>Partenaire</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>
                 <Th align="center">Actions</Th>

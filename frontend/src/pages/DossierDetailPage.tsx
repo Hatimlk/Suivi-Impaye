@@ -236,7 +236,6 @@ export default function DossierDetailPage() {
 
         {/* Infos */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-          <InfoField icon={Calendar} label="Date de saisie" value={formatDate(dossier.date_saisie)} />
           <InfoField icon={Calendar} label="Date facture" value={dossier.date_facture ? formatDate(dossier.date_facture) : '-'} />
           <InfoField icon={Calendar} label="Échéance" value={dossier.date_echeance ? formatDate(dossier.date_echeance) : '-'} />
           <InfoField icon={Building2} label="Banque" value={dossier.banque} />
@@ -373,7 +372,7 @@ export default function DossierDetailPage() {
             />
             <div className="col-span-2">
               <Input
-                label="Nom du tiré *"
+                label="Partenaire *"
                 value={editForm.nom_tire}
                 onChange={(e) => setEditForm({ ...editForm, nom_tire: e.target.value })}
                 required

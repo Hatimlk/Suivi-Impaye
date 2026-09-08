@@ -220,7 +220,7 @@ export default function DossiersPage() {
               name="search"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Rechercher par nom, numero, banque..."
+              placeholder="Rechercher par partenaire, numéro, banque..."
               icon={<Search className="w-4 h-4" />}
             />
           </div>
@@ -248,7 +248,13 @@ export default function DossiersPage() {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+            <Input
+              label="Partenaire"
+              value={filters.nom_tire || ''}
+              onChange={(e) => setFilter('nom_tire', e.target.value)}
+              placeholder="Filtrer par partenaire"
+            />
             <Select
               label="Commercial"
               value={filters.commercial_id || ''}
@@ -326,7 +332,7 @@ export default function DossiersPage() {
                 <Th align="right">Montant</Th>
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
-                <Th>Nom du tiré</Th>
+                <Th>Partenaire</Th>
                 <Th>Observation</Th>
                 <Th>Relation</Th>
                 <Th>Commercial</Th>
@@ -439,7 +445,7 @@ export default function DossiersPage() {
             />
             <div className="col-span-2">
               <Input
-                label="Nom du tiré *"
+                label="Partenaire *"
                 value={createForm.nom_tire}
                 onChange={(e) => setCreateForm({ ...createForm, nom_tire: e.target.value })}
                 required
@@ -487,7 +493,7 @@ export default function DossiersPage() {
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
             Sélectionnez un fichier Excel (.xlsx, .xls) contenant les dossiers à importer.
-            Les colonnes acceptées: Date, BQ, Mt, Val, N Val, Nom du tire, Relation, Com, Statut, etc.
+            Les colonnes acceptées: Date, BQ, Mt, Val, N Val, Partenaire, Relation, Com, Statut, etc.
           </p>
           <input
             ref={fileInputRef}

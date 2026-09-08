@@ -56,7 +56,7 @@ export default function AlertsPage() {
               <Table>
                 <Thead>
                   <tr>
-                    <Th>Nom du tiré</Th>
+                    <Th>Partenaire</Th>
                     <Th>Banque</Th>
                     <Th align="right">Montant</Th>
                     <Th align="center">Jours</Th>
@@ -106,7 +106,7 @@ export default function AlertsPage() {
               <Table>
                 <Thead>
                   <tr>
-                    <Th>Nom du tiré</Th>
+                    <Th>Partenaire</Th>
                     <Th>Banque</Th>
                     <Th align="right">Montant</Th>
                     <Th>Statut</Th>

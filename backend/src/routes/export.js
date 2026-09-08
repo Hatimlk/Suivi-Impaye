@@ -43,7 +43,7 @@ router.get('/excel', async (req, res) => {
       'Montant': parseFloat(r.montant),
       'Type': r.type_valeur,
       'N Valeur': r.numero_valeur,
-      'Nom du tire': r.nom_tire,
+      'Partenaire': r.nom_tire,
       'Relation': r.relation,
       'Observation': r.observations,
       'Commercial': r.commercial,

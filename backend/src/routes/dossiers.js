@@ -21,6 +21,7 @@ router.get('/', async (req, res) => {
       page = 1,
       limit = 20,
       search = '',
+      nom_tire = '',
       banque = '',
       statut = '',
       commercial_id = '',
@@ -48,6 +49,12 @@ router.get('/', async (req, res) => {
     if (search) {
       conditions.push(`(d.nom_tire ILIKE $${paramIndex} OR d.numero_valeur ILIKE $${paramIndex} OR d.banque ILIKE $${paramIndex})`);
       params.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (nom_tire) {
+      conditions.push(`d.nom_tire ILIKE $${paramIndex}`);
+      params.push(`%${nom_tire}%`);
       paramIndex++;
     }
 
@@ -380,7 +387,7 @@ const COLUMN_MAP = {
   'Mt': 'montant', 'Montant': 'montant', 'montant': 'montant',
   'Val': 'type_valeur', 'Type': 'type_valeur', 'type_valeur': 'type_valeur',
   'N Val': 'numero_valeur', 'N° Valeur': 'numero_valeur', 'numero_valeur': 'numero_valeur',
-  'Nom du tire': 'nom_tire', 'Nom tire': 'nom_tire', 'nom_tire': 'nom_tire',
+  'Nom du tire': 'nom_tire', 'Nom tire': 'nom_tire', 'Partenaire': 'nom_tire', 'nom_tire': 'nom_tire',
   'Relation': 'relation', 'relation': 'relation',
   'Observations': 'observations', 'observations': 'observations',
   'Com': 'commercial_nom', 'Commercial': 'commercial_nom', 'commercial': 'commercial_nom',

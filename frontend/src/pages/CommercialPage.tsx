@@ -131,7 +131,7 @@ export default function CommercialPage() {
                 <Th>Banque</Th>
                 <Th align="right">Montant</Th>
                 <Th>N Valeur</Th>
-                <Th>Nom du tiré</Th>
+                <Th>Partenaire</Th>
                 <Th>Observation</Th>
                 <Th>Statut</Th>
                 <Th align="center">Jours</Th>
