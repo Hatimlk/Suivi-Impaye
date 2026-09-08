@@ -10,7 +10,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const paddingClasses: Record<CardPadding, string> = {
   none: '',
   sm: 'p-3',
-  md: 'p-5',
+  md: 'p-4 sm:p-5',
 };
 
 export function Card({ className, padding = 'md', children, ...props }: CardProps) {

@@ -162,7 +162,7 @@ export default function DerogationPage() {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
             <Select label="Banque" value={filters.banque || ''} onChange={(e) => setFilter('banque', e.target.value)}>
               <option value="">Toutes les banques</option>
               {banques.map((b) => <option key={b} value={b}>{b}</option>)}

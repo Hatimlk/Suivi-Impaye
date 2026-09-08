@@ -11,8 +11,8 @@ export function Pagination({ page, totalPages, onChange }: PaginationProps) {
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-      <p className="text-sm text-gray-500">
+    <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-t border-gray-200">
+      <p className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
         Page {page} sur {totalPages}
       </p>
       <div className="flex items-center gap-1">
@@ -32,7 +32,7 @@ export function Pagination({ page, totalPages, onChange }: PaginationProps) {
               key={p}
               onClick={() => onChange(p)}
               className={cn(
-                'w-8 h-8 rounded-lg text-sm transition',
+                'hidden min-[390px]:inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm transition',
                 p === page ? 'bg-brand-600 text-white' : 'hover:bg-gray-100 text-gray-700'
               )}
             >

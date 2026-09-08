@@ -50,7 +50,7 @@ export function AppLayout() {
       ];
 
   return (
-    <div className="flex h-screen bg-[#f4f5f8]">
+    <div className="flex h-[100dvh] bg-[#f4f5f8]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -175,7 +175,7 @@ export function AppLayout() {
         </header>
 
         {/* Dynamic page outlet */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           <Outlet />
         </main>
       </div>

@@ -251,7 +251,7 @@ export default function DossiersPage() {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
             <Select
               label="Partenaire"
               value={filters.nom_tire || ''}
@@ -416,7 +416,7 @@ export default function DossiersPage() {
 
       <Modal open={showForm} onClose={closeForm} title={editDossier ? 'Modifier le dossier' : 'Nouveau dossier'}>
         <form onSubmit={handleSubmitForm} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Banque *"
               value={createForm.banque}
@@ -450,7 +450,7 @@ export default function DossiersPage() {
               onChange={(e) => setCreateForm({ ...createForm, numero_valeur: e.target.value })}
               required
             />
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Input
                 label="Partenaire *"
                 value={createForm.nom_tire}
@@ -475,7 +475,7 @@ export default function DossiersPage() {
                 <option key={s} value={s}>{s}</option>
               ))}
             </Select>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Textarea
                 label="Observations"
                 value={createForm.observations}

@@ -43,6 +43,21 @@ body {
   font-family: var(--font-sans);
   margin: 0;
   background-color: #f4f4f5;
+  overflow-x: hidden;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 @layer utilities {

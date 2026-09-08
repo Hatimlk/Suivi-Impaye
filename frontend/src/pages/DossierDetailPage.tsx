@@ -235,7 +235,7 @@ export default function DossierDetailPage() {
         </div>
 
         {/* Infos */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-4 gap-4 p-3 sm:p-4">
           <InfoField icon={Calendar} label="Date facture" value={dossier.date_facture ? formatDate(dossier.date_facture) : '-'} />
           <InfoField icon={Calendar} label="Échéance" value={dossier.date_echeance ? formatDate(dossier.date_echeance) : '-'} />
           <InfoField icon={Building2} label="Banque" value={dossier.banque} />
@@ -336,7 +336,7 @@ export default function DossierDetailPage() {
       {/* Modal modification dossier */}
       <Modal open={showEditModal} onClose={() => setShowEditModal(false)} title="Modifier le dossier">
         <form onSubmit={handleSaveEdit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Banque *"
               value={editForm.banque}
@@ -370,7 +370,7 @@ export default function DossierDetailPage() {
               onChange={(e) => setEditForm({ ...editForm, numero_valeur: e.target.value })}
               required
             />
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Input
                 label="Partenaire *"
                 value={editForm.nom_tire}
@@ -396,7 +396,7 @@ export default function DossierDetailPage() {
                 <option key={c.id} value={c.id}>{c.nom}</option>
               ))}
             </Select>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Select
                 label="Statut"
                 value={editForm.statut}
@@ -407,7 +407,7 @@ export default function DossierDetailPage() {
                 ))}
               </Select>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Textarea
                 label="Observations"
                 value={editForm.observations}

@@ -11,8 +11,8 @@ const alignClasses: Record<Align, string> = {
 
 export function Table({ className, children, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="overflow-x-auto">
-      <table className={cn('w-full text-sm', className)} {...props}>
+    <div className="overflow-x-auto overscroll-x-contain scrollbar-thin touch-pan-x">
+      <table className={cn('w-full min-w-max text-xs sm:text-sm', className)} {...props}>
         {children}
       </table>
     </div>
@@ -43,7 +43,7 @@ export function Th({ className, align = 'left', children, ...props }: ThProps) {
   return (
     <th
       className={cn(
-        'px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide',
+        'whitespace-nowrap px-2 sm:px-3 py-2.5 sm:py-3 text-xs font-medium text-gray-500 uppercase tracking-wide',
         alignClasses[align],
         className
       )}
@@ -60,7 +60,7 @@ interface TdProps extends TdHTMLAttributes<HTMLTableCellElement> {
 
 export function Td({ className, align = 'left', children, ...props }: TdProps) {
   return (
-    <td className={cn('px-3 py-3 text-gray-700', alignClasses[align], className)} {...props}>
+    <td className={cn('whitespace-nowrap px-2 sm:px-3 py-2.5 sm:py-3 text-gray-700', alignClasses[align], className)} {...props}>
       {children}
     </td>
   );

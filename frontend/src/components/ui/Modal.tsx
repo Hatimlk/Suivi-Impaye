@@ -33,7 +33,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -44,14 +44,14 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className={cn('bg-white rounded-xl shadow-2xl w-full max-h-[90vh] overflow-y-auto', sizeClasses[size])}
+            className={cn('bg-white rounded-t-2xl sm:rounded-xl shadow-2xl w-full max-h-[94dvh] sm:max-h-[90vh] overflow-y-auto', sizeClasses[size])}
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.15 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
               <button
                 onClick={onClose}
@@ -61,7 +61,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-4">{children}</div>
+            <div className="p-3 sm:p-4">{children}</div>
           </motion.div>
         </motion.div>
       )}
