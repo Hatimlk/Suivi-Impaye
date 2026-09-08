@@ -29,7 +29,7 @@ export default function CommercialPage() {
       const res = await api.getDossiers({
         page: String(page),
         limit: '10',
-        sort: 'date_saisie',
+        sort: 'date_facture',
         order: 'DESC',
       });
       setDossiers(res.dossiers);
@@ -127,7 +127,7 @@ export default function CommercialPage() {
           <Table>
             <Thead>
               <tr>
-                <Th>Date</Th>
+                <Th>Date de facture</Th>
                 <Th>Banque</Th>
                 <Th align="right">Montant</Th>
                 <Th>N Valeur</Th>
@@ -141,7 +141,7 @@ export default function CommercialPage() {
             <Tbody>
               {dossiers.map((d) => (
                 <Tr key={d.id} className="cursor-pointer" onClick={() => navigate(`/dossiers/${d.id}`)}>
-                  <Td>{formatDate(d.date_saisie)}</Td>
+                  <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>

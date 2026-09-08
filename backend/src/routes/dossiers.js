@@ -109,7 +109,7 @@ router.get('/', async (req, res) => {
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     // Tri sécurisé
-    const allowedSorts = ['date_saisie', 'montant', 'nom_tire', 'banque', 'statut', 'date_derniere_action'];
+    const allowedSorts = ['date_saisie', 'date_facture', 'date_echeance', 'montant', 'nom_tire', 'banque', 'statut', 'date_derniere_action'];
     const sortField = allowedSorts.includes(sort) ? sort : 'date_saisie';
     const sortOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
