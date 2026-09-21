@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { formatMontant, formatDate, joursDepuis, cn } from '../utils';
+import { formatMontant, formatDate, cn } from '../utils';
 import { CATEGORICAL, SEQUENTIAL_BLUE, CHART_INK } from '../utils/chartColors';
-import type { DashboardStats, Dossier } from '../types';
+import type { DashboardStats } from '../types';
 import {
   BarChart, Bar, AreaChart, Area, LineChart, Line, Legend,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
   FolderOpen, TrendingUp, AlertTriangle, Clock, Download, Plus,
-  FileText, CheckCircle2, Copy, Check, Search, ArrowRight,
+  FileText, CheckCircle2, Copy, Check, ArrowRight,
   CreditCard, Calendar as CalendarIcon, ShieldCheck, ChevronRight, User,
   ChevronLeft, X, BellRing, Info, Filter, Layers
 } from 'lucide-react';
 import {
-  Card, Table, Thead, Tbody, Tr, Th, Td, Badge, StatusBadge, Button, Input, PageSpinner, EmptyState, ChartTooltip
+  Card, Button, PageSpinner, EmptyState, ChartTooltip
 } from '../components/ui';
 
 function formatKAxis(value: number) {
@@ -310,7 +310,7 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
   }, 0);
 
   return (
-    <Card className="lg:col-span-8 p-5 space-y-4 shadow-xs border-gray-200">
+    <Card className="lg:col-span-12 p-5 sm:p-6 space-y-4 shadow-xs border-gray-200">
       {/* Header controls: Title + Period Pills + Commercial Select */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
         <div>
@@ -400,8 +400,9 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
       </div>
 
       {/* Chart Canvas */}
-      <ResponsiveContainer width="100%" height={260}>
-        {selectedCommercial === 'all' ? (
+      <div className="h-[360px] sm:h-[430px] xl:h-[500px]">
+        <ResponsiveContainer width="100%" height="100%">
+          {selectedCommercial === 'all' ? (
           <LineChart data={activeData} margin={{ left: -10, right: 15, top: 10, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke={CHART_INK.gridline} strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={axisTick} axisLine={false} tickLine={false} />
@@ -435,7 +436,7 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
               />
             ))}
           </LineChart>
-        ) : (
+          ) : (
           <AreaChart data={activeData} margin={{ left: -10, right: 15, top: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="colorSingleComm" x1="0" y1="0" x2="0" y2="1">
@@ -458,8 +459,9 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
               activeDot={{ r: 6.5 }}
             />
           </AreaChart>
-        )}
-      </ResponsiveContainer>
+          )}
+        </ResponsiveContainer>
+      </div>
     </Card>
   );
 }
@@ -467,20 +469,13 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentDossiers, setRecentDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(false);
-  const [tableSearch, setTableSearch] = useState('');
 
   useEffect(() => {
-    Promise.all([
-      api.getStats().catch(() => null),
-      api.getDossiers({ limit: '6', sort: 'date_facture', order: 'DESC' }).catch(() => ({ dossiers: [] })),
-    ])
-      .then(([statsRes, dossiersRes]) => {
-        setStats(statsRes);
-        setRecentDossiers(dossiersRes.dossiers || []);
-      })
+    api.getStats()
+      .then(setStats)
+      .catch(() => setStats(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -517,10 +512,6 @@ export default function DashboardPage() {
   }
 
   const topBanques = [...stats.parBanque].sort((a, b) => b.total_montant - a.total_montant).slice(0, 6);
-  const filteredRecent = recentDossiers.filter((d) =>
-    tableSearch ? d.nom_tire.toLowerCase().includes(tableSearch.toLowerCase()) || d.numero_valeur.toLowerCase().includes(tableSearch.toLowerCase()) : true
-  );
-
   const chqData = stats.parType.find((t) => t.type_valeur === 'CHQ') || { count: 0, total_montant: 0 };
   const lcnData = stats.parType.find((t) => t.type_valeur === 'LCN') || { count: 0, total_montant: 0 };
   const regularises = stats.parStatut.filter((s) => s.statut.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('regularise'));
@@ -710,14 +701,14 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Row 1: Main Evolution Chart + Progress Gauge Card + Relance Calendar */}
+          {/* Row 1: Full-width main evolution chart */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
             {/* Main Evolution Chart by Period & Commercial */}
             <EvolutionImpayesChart stats={stats} />
 
-            {/* Gauge & Calendar Column */}
-            <div className="lg:col-span-4 space-y-6">
+            {/* Secondary indicators below the chart */}
+            <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="p-4">
                 <ProgressGauge value={regulariseRate} label="Taux de régularisation" subtext={`${regulariseCount} dossier(s) · ${formatMontant(regulariseAmount)}`} />
               </Card>
@@ -763,108 +754,6 @@ export default function DashboardPage() {
             </Card>
           </div>
 
-          {/* Row 3: Prescriptions-style Data Table */}
-          <Card padding="none" className="overflow-hidden space-y-0">
-            {/* Table Card Header with Search Bar */}
-            <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 bg-gray-50/50">
-              <div>
-                <h2 className="text-base font-bold text-gray-900">Dossiers Impayés Récents</h2>
-                <p className="text-xs text-gray-500">Aperçu rapide des dernières échéances et valeurs saisies</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="relative w-full sm:w-64">
-                  <Input
-                    name="tableSearch"
-                    value={tableSearch}
-                    onChange={(e) => setTableSearch(e.target.value)}
-                    placeholder="Chercher tiré, N° valeur..."
-                    icon={<Search className="w-3.5 h-3.5 text-gray-400" />}
-                    className="py-1.5 text-xs rounded-xl"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dossiers')}
-                  className="text-xs rounded-xl whitespace-nowrap cursor-pointer"
-                >
-                  <span>Tous ({stats.total.count})</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* Table body */}
-            <Table>
-              <Thead>
-                <tr>
-                  <Th>Date de facture</Th>
-                  <Th align="center">Jours</Th>
-                  <Th>N° Valeur</Th>
-                  <Th>Type</Th>
-                  <Th>Nom du Tiré</Th>
-                  <Th>Commercial</Th>
-                  <Th align="right">Montant</Th>
-                  <Th>Statut</Th>
-                  <Th align="center">Action</Th>
-                </tr>
-              </Thead>
-              <Tbody>
-                {filteredRecent.length === 0 ? (
-                  <Tr>
-                    <Td colSpan={9} className="text-center py-6 text-gray-400 text-xs">
-                      Aucun dossier trouvé
-                    </Td>
-                  </Tr>
-                ) : (
-                  filteredRecent.map((d) => (
-                    <Tr key={d.id} className="hover:bg-brand-50/30 transition-colors">
-                      <Td className="text-xs text-gray-500">{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
-                      <Td align="center">
-                        <span
-                          className={cn(
-                            'text-xs font-semibold px-2 py-0.5 rounded-md inline-block',
-                            joursDepuis(d.date_echeance || d.date_saisie) >= 30
-                              ? 'bg-red-50 text-red-700 border border-red-200'
-                              : joursDepuis(d.date_echeance || d.date_saisie) >= 7
-                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                              : 'bg-gray-100 text-gray-700'
-                          )}
-                        >
-                          {joursDepuis(d.date_echeance || d.date_saisie)}j
-                        </span>
-                      </Td>
-                      <Td className="font-mono text-xs font-bold text-gray-800">{d.numero_valeur}</Td>
-                      <Td>
-                        <Badge
-                          tone={d.type_valeur === 'LCN' ? 'info' : 'brand'}
-                          pill={false}
-                          className={d.type_valeur === 'LCN' ? 'bg-violet-100 text-violet-700 font-bold rounded-md' : 'bg-brand-100 text-brand-700 font-bold rounded-md'}
-                        >
-                          {d.type_valeur}
-                        </Badge>
-                      </Td>
-                      <Td className="font-semibold text-gray-900 max-w-[200px] truncate text-xs">
-                        {d.nom_tire}
-                      </Td>
-                      <Td className="text-xs text-gray-600">{d.commercial_nom || '-'}</Td>
-                      <Td align="right" className="font-mono font-bold text-gray-900 text-xs">
-                        {formatMontant(d.montant)}
-                      </Td>
-                      <Td><StatusBadge statut={d.statut} /></Td>
-                      <Td align="center">
-                        <button
-                          onClick={() => navigate(`/dossiers/${d.id}`)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-semibold rounded-lg transition cursor-pointer"
-                        >
-                          <span>Détails</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </Td>
-                    </Tr>
-                  ))
-                )}
-              </Tbody>
-            </Table>
-          </Card>
         </div>
       </div>
     </div>
