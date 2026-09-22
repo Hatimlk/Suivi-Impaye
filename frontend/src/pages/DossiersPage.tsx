@@ -15,7 +15,7 @@ import {
 const EMPTY_FORM = {
   date_facture: '', date_echeance: '',
   banque: '', montant: '', type_valeur: 'CHQ', numero_valeur: '',
-  nom_tire: '', relation: 'CD', observations: '', statut: 'Attente retour du client',
+  nom_tire: '', porteur: '', relation: 'CD', observations: '', statut: 'Attente retour du client',
 };
 
 export default function DossiersPage() {
@@ -101,6 +101,7 @@ export default function DossiersPage() {
       type_valeur: d.type_valeur,
       numero_valeur: d.numero_valeur,
       nom_tire: d.nom_tire,
+      porteur: d.porteur || getPorteur(d.nom_tire, d.relation).replace('-', ''),
       relation: d.relation,
       observations: d.observations || '',
       statut: d.statut,
@@ -376,9 +377,9 @@ export default function DossiersPage() {
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
                   <Td
                     className="text-gray-700 font-medium max-w-[160px] truncate"
-                    title={getPorteur(d.nom_tire, d.relation)}
+                    title={d.porteur || '-'}
                   >
-                    {getPorteur(d.nom_tire, d.relation)}
+                    {d.porteur || '-'}
                   </Td>
                   <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
                     {d.observations?.split(' | Date facture :')[0] || ''}
@@ -493,6 +494,12 @@ export default function DossiersPage() {
               <option value="CD">Client Direct (CD)</option>
               <option value="CDC">Client de Client (CDC)</option>
             </Select>
+            <Input
+              label="Porteur"
+              value={createForm.porteur}
+              onChange={(e) => setCreateForm({ ...createForm, porteur: e.target.value })}
+              placeholder="Ex. LAABIDI"
+            />
             <Select
               label="Statut"
               value={createForm.statut}
@@ -527,7 +534,7 @@ export default function DossiersPage() {
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
             Sélectionnez un fichier Excel (.xlsx, .xls) contenant les dossiers à importer.
-            Les colonnes acceptées: Date, BQ, Mt, Val, N Val, Partenaire, Relation, Com, Statut, etc.
+            Les colonnes acceptées: Date, BQ, Mt, Val, N Val, Partenaire, Porteur, Relation, Com, Statut, etc.
           </p>
           <input
             ref={fileInputRef}

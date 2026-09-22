@@ -92,7 +92,7 @@ router.get('/', async (req, res) => {
     }
 
     if (search) {
-      conditions.push(`(d.nom_tire ILIKE $${paramIndex} OR d.numero_valeur ILIKE $${paramIndex} OR d.banque ILIKE $${paramIndex})`);
+      conditions.push(`(d.nom_tire ILIKE $${paramIndex} OR d.porteur ILIKE $${paramIndex} OR d.numero_valeur ILIKE $${paramIndex} OR d.banque ILIKE $${paramIndex})`);
       params.push(`%${search}%`);
       paramIndex++;
     }
@@ -435,6 +435,7 @@ const COLUMN_MAP = {
   'Val': 'type_valeur', 'Type': 'type_valeur', 'type_valeur': 'type_valeur',
   'N Val': 'numero_valeur', 'N° Valeur': 'numero_valeur', 'numero_valeur': 'numero_valeur',
   'Nom du tire': 'nom_tire', 'Nom tire': 'nom_tire', 'Partenaire': 'nom_tire', 'nom_tire': 'nom_tire',
+  'Porteur': 'porteur', 'porteur': 'porteur',
   'Relation': 'relation', 'relation': 'relation',
   'Observations': 'observations', 'observations': 'observations',
   'Com': 'commercial_nom', 'Commercial': 'commercial_nom', 'commercial': 'commercial_nom',
@@ -519,16 +520,22 @@ router.post('/import', requireRole('admin', 'responsable_recouvrement'), upload.
         const validType = ['CHQ', 'LCN'].includes(typeValeur) ? typeValeur : 'CHQ';
         const relation = String(row.relation || 'CD').trim().toUpperCase();
         const validRelation = ['CD', 'CDC'].includes(relation) ? relation : 'CD';
+        const nomTire = String(row.nom_tire || '').trim();
+        const separatorIndex = nomTire.indexOf(':');
+        const porteur = String(row.porteur || (
+          validRelation === 'CDC' && separatorIndex >= 0 ? nomTire.slice(separatorIndex + 1) : ''
+        )).trim();
         const dateSaisie = parseFrenchDate(row.date_saisie) || new Date().toISOString().split('T')[0];
 
         const result = await query(
-          `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+          `INSERT INTO dossiers (date_saisie, banque, montant, type_valeur, numero_valeur, nom_tire, porteur, relation, observations, commercial_id, statut)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
           [
             dateSaisie,
             String(row.banque || 'N/A').trim(),
             montant, validType, numeroValeur,
-            String(row.nom_tire || '').trim(),
+            nomTire,
+            porteur,
             validRelation,
             String(row.observations || '').trim(),
             commercialId,
@@ -643,8 +650,8 @@ router.post('/', validate(createDossierSchema), async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO dossiers (date_saisie, date_facture, date_echeance, banque, montant, type_valeur, numero_valeur, nom_tire, relation, observations, commercial_id, statut)
-       VALUES (COALESCE($1::date, CURRENT_DATE), NULLIF($2, '')::date, NULLIF($3, '')::date, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO dossiers (date_saisie, date_facture, date_echeance, banque, montant, type_valeur, numero_valeur, nom_tire, porteur, relation, observations, commercial_id, statut)
+       VALUES (COALESCE($1::date, CURRENT_DATE), NULLIF($2, '')::date, NULLIF($3, '')::date, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         data.date_saisie,
@@ -655,6 +662,11 @@ router.post('/', validate(createDossierSchema), async (req, res) => {
         data.type_valeur,
         data.numero_valeur,
         data.nom_tire,
+        data.porteur || (
+          data.relation === 'CDC' && data.nom_tire.includes(':')
+            ? data.nom_tire.slice(data.nom_tire.indexOf(':') + 1).trim()
+            : ''
+        ),
         data.relation,
         data.observations || '',
         commercialId,

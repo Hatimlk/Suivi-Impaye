@@ -45,6 +45,7 @@ export default function DossierDetailPage() {
     type_valeur: 'CHQ',
     numero_valeur: '',
     nom_tire: '',
+    porteur: '',
     relation: 'CD',
     observations: '',
     statut: '',
@@ -82,6 +83,7 @@ export default function DossierDetailPage() {
       type_valeur: dossier.type_valeur,
       numero_valeur: dossier.numero_valeur,
       nom_tire: dossier.nom_tire,
+      porteur: dossier.porteur || '',
       relation: dossier.relation,
       observations: dossier.observations || '',
       statut: dossier.statut,
@@ -250,6 +252,7 @@ export default function DossierDetailPage() {
             label="Relation"
             value={dossier.relation === 'CD' ? 'Client Direct' : 'Client de Client'}
           />
+          <InfoField icon={User} label="Porteur" value={dossier.porteur || '-'} />
           <InfoField icon={User} label="Commercial" value={dossier.commercial_nom || '-'} />
           <InfoField
             icon={Clock}
@@ -386,6 +389,12 @@ export default function DossierDetailPage() {
               <option value="CD">Client Direct (CD)</option>
               <option value="CDC">Client de Client (CDC)</option>
             </Select>
+            <Input
+              label="Porteur"
+              value={editForm.porteur}
+              onChange={(e) => setEditForm({ ...editForm, porteur: e.target.value })}
+              placeholder="Ex. LAABIDI"
+            />
             <Select
               label="Commercial"
               value={editForm.commercial_id}

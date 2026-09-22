@@ -34,7 +34,7 @@ router.get('/excel', async (req, res) => {
 
     const result = await query(
       `SELECT d.date_saisie, d.date_facture, d.date_echeance, d.banque, d.montant, d.type_valeur, d.numero_valeur,
-              d.nom_tire, d.relation, d.observations, u.nom as commercial, d.statut,
+              d.nom_tire, d.porteur, d.relation, d.observations, u.nom as commercial, d.statut,
               d.date_derniere_action, d.date_creation
        FROM dossiers d LEFT JOIN users u ON d.commercial_id = u.id
        ${where} ORDER BY d.date_saisie DESC`,
@@ -50,7 +50,7 @@ router.get('/excel', async (req, res) => {
       'Type': r.type_valeur,
       'N Valeur': r.numero_valeur,
       'Partenaire': r.nom_tire,
-      'Porteur': getPorteur(r.nom_tire, r.relation),
+      'Porteur': r.porteur || getPorteur(r.nom_tire, r.relation),
       'Relation': r.relation,
       'Observation': r.observations,
       'Commercial': r.commercial,

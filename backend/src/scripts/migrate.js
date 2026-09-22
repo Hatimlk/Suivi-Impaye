@@ -35,6 +35,10 @@ async function migrate() {
     await client.query(migration3);
     console.log('Migration 003 terminee: dates facture et echeance ajoutees');
 
+    const migration4 = readFileSync(join(__dirname, '../../migrations/004_add_porteur.sql'), 'utf8');
+    await client.query(migration4);
+    console.log('Migration 004 terminee: champ porteur ajoute et initialise');
+
     // Creer l'admin par defaut
     const adminExists = await client.query("SELECT id FROM users WHERE email = 'admin@gadimat.ma'");
     if (adminExists.rows.length === 0) {

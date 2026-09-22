@@ -29,6 +29,7 @@ export interface Dossier {
   type_valeur: TypeValeur;
   numero_valeur: string;
   nom_tire: string;
+  porteur: string;
   relation: Relation;
   observations: string;
   commercial_id: string | null;
