@@ -27,51 +27,6 @@ function formatKAxis(value: number) {
 const axisTick = { fontSize: 11, fill: CHART_INK.secondary };
 const valueAxisTick = { fontSize: 12, fill: CHART_INK.muted };
 
-// Mini SVG Circular Gauge Component inspired by Weight Widget in reference UI
-function ProgressGauge({ value = 100, label = 'Taux de Régularisation', subtext = 'Total encaissements' }) {
-  const radius = 42;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (value / 100) * circumference;
-
-  return (
-    <div className="flex flex-col items-center justify-center p-4">
-      <div className="relative w-32 h-32 flex items-center justify-center">
-        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            className="text-gray-100"
-            strokeWidth="10"
-            stroke="currentColor"
-            fill="transparent"
-          />
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            className="text-brand-600 transition-all duration-1000 ease-out"
-            strokeWidth="10"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            stroke="currentColor"
-            fill="transparent"
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-2xl font-extrabold text-gray-900 tracking-tight">{value}%</span>
-          <span className="text-[10px] uppercase font-bold text-emerald-600 tracking-wider">Objectif OK</span>
-        </div>
-      </div>
-      <div className="text-center mt-3">
-        <p className="text-xs font-semibold text-gray-800">{label}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{subtext}</p>
-      </div>
-    </div>
-  );
-}
-
 const MONTH_NAMES = [
   'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -516,7 +471,6 @@ export default function DashboardPage() {
   const lcnData = stats.parType.find((t) => t.type_valeur === 'LCN') || { count: 0, total_montant: 0 };
   const regularises = stats.parStatut.filter((s) => s.statut.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('regularise'));
   const regulariseCount = regularises.reduce((sum, item) => sum + Number(item.count), 0);
-  const regulariseAmount = regularises.reduce((sum, item) => sum + Number(item.total_montant), 0);
   const regulariseRate = stats.total.count ? Math.round((regulariseCount / stats.total.count) * 100) : 0;
   const contentieuxCount = stats.parStatut
     .filter((s) => s.statut.toLowerCase().includes('contentieux'))
@@ -707,12 +661,8 @@ export default function DashboardPage() {
             {/* Main Evolution Chart by Period & Commercial */}
             <EvolutionImpayesChart stats={stats} />
 
-            {/* Secondary indicators below the chart */}
-            <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="p-4">
-                <ProgressGauge value={regulariseRate} label="Taux de régularisation" subtext={`${regulariseCount} dossier(s) · ${formatMontant(regulariseAmount)}`} />
-              </Card>
-
+            {/* Relance calendar below the chart */}
+            <div className="lg:col-span-12">
               <Card className="p-4">
                 <RelanceCalendar />
               </Card>
