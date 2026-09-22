@@ -5,7 +5,7 @@ import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { sendCommercialActionNotification } from '../services/mailer.js';
-import { ensurePorteurColumn } from '../services/schema.js';
+import { ensurePorteurColumn, ensurePartenairesTable } from '../services/schema.js';
 import {
   validate,
   createDossierSchema,
@@ -28,6 +28,11 @@ router.use(async (_req, res, next) => {
 // GET /api/dossiers/partenaires - Liste distincte pour les filtres
 router.get('/partenaires', async (req, res) => {
   try {
+    await ensurePartenairesTable();
+    if (req.user.role !== 'commercial') {
+      const reference = await query('SELECT nom FROM partenaires_reference WHERE actif = true ORDER BY nom');
+      return res.json(reference.rows.map((row) => row.nom));
+    }
     const params = [];
     const commercialFilter = req.user.role === 'commercial'
       ? 'AND commercial_id = $1'

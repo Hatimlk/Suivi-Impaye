@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { formatDate, formatDateTime, ROLE_LABELS, cn } from '../utils';
-import type { User, UserRole, BanqueRef, StatutRef, RelationRef, AuditLog } from '../types';
-import { Users, Building2, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import type { User, UserRole, BanqueRef, PartenaireRef, StatutRef, RelationRef, AuditLog } from '../types';
+import { Users, Building2, Handshake, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight, Pencil } from 'lucide-react';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Input, Select, Modal,
   EmptyState, PageSpinner, PageHeader,
 } from '../components/ui';
 
-type Tab = 'users' | 'banques' | 'statuts' | 'relations' | 'audit';
+type Tab = 'users' | 'banques' | 'partenaires' | 'statuts' | 'relations' | 'audit';
 
 const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
   { key: 'users', label: 'Utilisateurs', icon: Users },
   { key: 'banques', label: 'Banques', icon: Building2 },
+  { key: 'partenaires', label: 'Partenaires', icon: Handshake },
   { key: 'statuts', label: 'Statuts', icon: Tag },
   { key: 'relations', label: 'Relations', icon: BookOpen },
   { key: 'audit', label: "Journal d'audit", icon: FileText },
@@ -42,6 +43,11 @@ export default function AdminPage() {
   const [banquesLoading, setBanquesLoading] = useState(false);
   const [banqueNom, setBanqueNom] = useState('');
   const [banqueSubmitting, setBanqueSubmitting] = useState(false);
+
+  const [partenaires, setPartenaires] = useState<PartenaireRef[]>([]);
+  const [partenairesLoading, setPartenairesLoading] = useState(false);
+  const [partenaireNom, setPartenaireNom] = useState('');
+  const [partenaireSubmitting, setPartenaireSubmitting] = useState(false);
 
   const [statuts, setStatuts] = useState<StatutRef[]>([]);
   const [statutsLoading, setStatutsLoading] = useState(false);
@@ -97,6 +103,17 @@ export default function AdminPage() {
     }
   };
 
+  const loadPartenaires = async () => {
+    try {
+      setPartenairesLoading(true);
+      setPartenaires(await api.getPartenairesRef());
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors du chargement des partenaires');
+    } finally {
+      setPartenairesLoading(false);
+    }
+  };
+
   const loadRelations = async () => {
     try {
       setRelationsLoading(true);
@@ -128,6 +145,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === 'users') loadUsers();
     if (activeTab === 'banques') loadBanques();
+    if (activeTab === 'partenaires') loadPartenaires();
     if (activeTab === 'statuts') loadStatuts();
     if (activeTab === 'relations') loadRelations();
     if (activeTab === 'audit') loadAuditLogs();
@@ -217,6 +235,41 @@ export default function AdminPage() {
       alert(err.message || 'Erreur lors de la creation');
     } finally {
       setStatutSubmitting(false);
+    }
+  };
+
+  const handleCreatePartenaire = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partenaireNom.trim()) return;
+    try {
+      setPartenaireSubmitting(true);
+      await api.createPartenaire(partenaireNom.trim());
+      setPartenaireNom('');
+      loadPartenaires();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la création');
+    } finally {
+      setPartenaireSubmitting(false);
+    }
+  };
+
+  const handleEditPartenaire = async (partenaire: PartenaireRef) => {
+    const nom = prompt('Nouveau nom du partenaire', partenaire.nom)?.trim();
+    if (!nom || nom === partenaire.nom) return;
+    try {
+      await api.updatePartenaire(partenaire.id, nom);
+      loadPartenaires();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la modification');
+    }
+  };
+
+  const handleTogglePartenaire = async (id: number) => {
+    try {
+      await api.togglePartenaire(id);
+      loadPartenaires();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors du changement de statut');
     }
   };
 
@@ -381,6 +434,45 @@ export default function AdminPage() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'partenaires' && (
+        <div className="space-y-4">
+          <form onSubmit={handleCreatePartenaire} className="flex gap-2 items-start">
+            <div className="flex-1">
+              <Input value={partenaireNom} onChange={(e) => setPartenaireNom(e.target.value)} placeholder="Nom du partenaire" required />
+            </div>
+            <Button type="submit" loading={partenaireSubmitting}>
+              <Plus className="w-4 h-4" /> Ajouter
+            </Button>
+          </form>
+          <Card padding="none" className="overflow-hidden">
+            {partenairesLoading ? (
+              <PageSpinner label="Chargement..." />
+            ) : partenaires.length === 0 ? (
+              <EmptyState icon={<Handshake className="w-6 h-6" />} title="Aucun partenaire" />
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {partenaires.map((partenaire) => (
+                  <li key={partenaire.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-900 font-medium">{partenaire.nom}</span>
+                      <ActifBadge actif={partenaire.actif} />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleEditPartenaire(partenaire)} className="p-1.5 text-brand-600 hover:bg-brand-50 rounded-lg" title="Modifier">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleTogglePartenaire(partenaire.id)} className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg" title={partenaire.actif ? 'Désactiver' : 'Activer'}>
+                        {partenaire.actif ? <ToggleRight className="w-5 h-5 text-emerald-600" /> : <ToggleLeft className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

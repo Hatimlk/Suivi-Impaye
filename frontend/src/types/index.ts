@@ -94,6 +94,13 @@ export interface BanqueRef {
   actif: boolean;
 }
 
+export interface PartenaireRef {
+  id: number;
+  nom: string;
+  actif: boolean;
+  date_creation: string;
+}
+
 export interface StatutRef {
   id: number;
   libelle: string;

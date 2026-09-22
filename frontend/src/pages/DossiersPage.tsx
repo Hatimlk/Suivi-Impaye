@@ -498,10 +498,14 @@ export default function DossiersPage() {
             <div className="sm:col-span-2">
               <Input
                 label="Partenaire *"
+                list="partenaires-reference"
                 value={createForm.nom_tire}
                 onChange={(e) => setCreateForm({ ...createForm, nom_tire: e.target.value })}
                 required
               />
+              <datalist id="partenaires-reference">
+                {partenaires.map((partenaire) => <option key={partenaire} value={partenaire} />)}
+              </datalist>
             </div>
             <Select
               label="Relation"

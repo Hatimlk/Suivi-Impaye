@@ -111,6 +111,11 @@ export const api = {
     request<any>('/admin/banques', { method: 'POST', body: JSON.stringify({ nom }) }),
   deleteBanque: (id: number) => request<any>(`/admin/banques/${id}`, { method: 'DELETE' }),
 
+  getPartenairesRef: () => request<any[]>('/admin/partenaires'),
+  createPartenaire: (nom: string) => request<any>('/admin/partenaires', { method: 'POST', body: JSON.stringify({ nom }) }),
+  updatePartenaire: (id: number, nom: string) => request<any>(`/admin/partenaires/${id}`, { method: 'PUT', body: JSON.stringify({ nom }) }),
+  togglePartenaire: (id: number) => request<any>(`/admin/partenaires/${id}/toggle`, { method: 'PATCH' }),
+
   getStatuts: () => request<any[]>('/admin/statuts'),
   createStatut: (data: any) =>
     request<any>('/admin/statuts', { method: 'POST', body: JSON.stringify(data) }),

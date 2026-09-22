@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { ensurePartenairesTable } from '../services/schema.js';
 import {
   validate,
   createUserSchema,
@@ -14,6 +15,55 @@ import {
 
 const router = Router();
 router.use(authenticateToken);
+
+// ====================== PARTENAIRES ======================
+
+router.get('/partenaires', async (_req, res) => {
+  try {
+    await ensurePartenairesTable();
+    const result = await query('SELECT * FROM partenaires_reference ORDER BY nom');
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erreur partenaires:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+router.post('/partenaires', requireRole('admin'), validate(createBanqueSchema), async (req, res) => {
+  try {
+    await ensurePartenairesTable();
+    const result = await query('INSERT INTO partenaires_reference (nom) VALUES ($1) RETURNING *', [req.validated.nom.trim()]);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Ce partenaire existe déjà' });
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+router.put('/partenaires/:id', requireRole('admin'), async (req, res) => {
+  try {
+    await ensurePartenairesTable();
+    const nom = String(req.body.nom || '').trim();
+    if (!nom) return res.status(400).json({ error: 'Nom requis' });
+    const result = await query('UPDATE partenaires_reference SET nom = $1 WHERE id = $2 RETURNING *', [nom, req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Partenaire introuvable' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    if (err.code === '23505') return res.status(400).json({ error: 'Ce partenaire existe déjà' });
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+router.patch('/partenaires/:id/toggle', requireRole('admin'), async (req, res) => {
+  try {
+    await ensurePartenairesTable();
+    const result = await query('UPDATE partenaires_reference SET actif = NOT actif WHERE id = $1 RETURNING *', [req.params.id]);
+    if (!result.rows[0]) return res.status(404).json({ error: 'Partenaire introuvable' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 
 // ====================== UTILISATEURS ======================
 
