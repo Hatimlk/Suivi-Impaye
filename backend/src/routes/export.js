@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as XLSX from 'xlsx';
 import { query } from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { ensurePorteurColumn } from '../services/schema.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -15,6 +16,7 @@ function getPorteur(nomTire, relation) {
 // GET /api/export/excel
 router.get('/excel', async (req, res) => {
   try {
+    await ensurePorteurColumn();
     const conditions = [];
     const params = [];
     let idx = 1;

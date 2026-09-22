@@ -5,6 +5,7 @@ import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { sendCommercialActionNotification } from '../services/mailer.js';
+import { ensurePorteurColumn } from '../services/schema.js';
 import {
   validate,
   createDossierSchema,
@@ -14,6 +15,15 @@ import {
 
 const router = Router();
 router.use(authenticateToken);
+router.use(async (_req, res, next) => {
+  try {
+    await ensurePorteurColumn();
+    next();
+  } catch (error) {
+    console.error('Erreur migration automatique porteur:', error);
+    res.status(500).json({ error: 'Erreur de mise à jour de la base de données' });
+  }
+});
 
 // GET /api/dossiers/partenaires - Liste distincte pour les filtres
 router.get('/partenaires', async (req, res) => {
