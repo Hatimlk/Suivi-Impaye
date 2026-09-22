@@ -79,6 +79,7 @@ router.get('/', async (req, res) => {
       nom_tire = '',
       banque = '',
       statut = '',
+      relation = '',
       commercial_id = '',
       type_valeur = '',
       date_debut = '',
@@ -122,6 +123,12 @@ router.get('/', async (req, res) => {
     if (statut) {
       conditions.push(`d.statut = $${paramIndex}`);
       params.push(statut);
+      paramIndex++;
+    }
+
+    if (relation && ['CD', 'CDC'].includes(String(relation).toUpperCase())) {
+      conditions.push(`d.relation = $${paramIndex}`);
+      params.push(String(relation).toUpperCase());
       paramIndex++;
     }
 

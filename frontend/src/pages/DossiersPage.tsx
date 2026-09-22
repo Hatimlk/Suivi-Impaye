@@ -260,7 +260,7 @@ export default function DossiersPage() {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100">
             <Select
               label="Partenaire"
               value={filters.nom_tire || ''}
@@ -301,6 +301,15 @@ export default function DossiersPage() {
                 <option key={b} value={b}>{b}</option>
               ))}
             </Select>
+            <Select
+              label="Relation"
+              value={filters.relation || ''}
+              onChange={(e) => setFilter('relation', e.target.value)}
+            >
+              <option value="">Toutes les relations</option>
+              <option value="CD">Client Direct (CD)</option>
+              <option value="CDC">Client de Client (CDC)</option>
+            </Select>
           </div>
         )}
 
@@ -326,6 +335,14 @@ export default function DossiersPage() {
               <Badge tone="success">
                 Banque: {filters.banque}
                 <button onClick={() => setFilter('banque', '')} className="hover:opacity-70">
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.relation && (
+              <Badge tone="neutral">
+                Relation: {filters.relation}
+                <button onClick={() => setFilter('relation', '')} className="hover:opacity-70">
                   <X className="w-3 h-3" />
                 </button>
               </Badge>

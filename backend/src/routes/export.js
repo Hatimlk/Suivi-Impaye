@@ -25,9 +25,12 @@ router.get('/excel', async (req, res) => {
     }
 
 
-    const { banque, statut, type_valeur, date_debut, date_fin } = req.query;
+    const { banque, statut, relation, type_valeur, date_debut, date_fin } = req.query;
     if (banque) { conditions.push(`d.banque = $${idx}`); params.push(banque); idx++; }
     if (statut) { conditions.push(`d.statut = $${idx}`); params.push(statut); idx++; }
+    if (relation && ['CD', 'CDC'].includes(String(relation).toUpperCase())) {
+      conditions.push(`d.relation = $${idx}`); params.push(String(relation).toUpperCase()); idx++;
+    }
     if (type_valeur) { conditions.push(`d.type_valeur = $${idx}`); params.push(type_valeur); idx++; }
     if (date_debut) { conditions.push(`d.date_saisie >= $${idx}`); params.push(date_debut); idx++; }
     if (date_fin) { conditions.push(`d.date_saisie <= $${idx}`); params.push(date_fin); idx++; }
