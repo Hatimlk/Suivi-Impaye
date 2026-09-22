@@ -32,6 +32,19 @@ export function joursDepuis(dateStr: string | null): number {
   return Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/**
+ * Pour une relation CDC, le porteur est la partie du partenaire située après
+ * le premier deux-points (ex. "ZEKNOUN RACHID : LAABIDI" -> "LAABIDI").
+ */
+export function getPorteur(nomTire: string, relation: string): string {
+  if (relation !== 'CDC') return '-';
+
+  const separatorIndex = nomTire.indexOf(':');
+  if (separatorIndex === -1) return '-';
+
+  return nomTire.slice(separatorIndex + 1).trim() || '-';
+}
+
 export type SemanticTone = 'danger' | 'warning' | 'success' | 'info' | 'neutral';
 
 /**

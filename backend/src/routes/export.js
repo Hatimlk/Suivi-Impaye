@@ -6,6 +6,12 @@ import { authenticateToken } from '../middleware/auth.js';
 const router = Router();
 router.use(authenticateToken);
 
+function getPorteur(nomTire, relation) {
+  if (relation !== 'CDC') return '';
+  const separatorIndex = String(nomTire || '').indexOf(':');
+  return separatorIndex === -1 ? '' : String(nomTire).slice(separatorIndex + 1).trim();
+}
+
 // GET /api/export/excel
 router.get('/excel', async (req, res) => {
   try {
@@ -44,6 +50,7 @@ router.get('/excel', async (req, res) => {
       'Type': r.type_valeur,
       'N Valeur': r.numero_valeur,
       'Partenaire': r.nom_tire,
+      'Porteur': getPorteur(r.nom_tire, r.relation),
       'Relation': r.relation,
       'Observation': r.observations,
       'Commercial': r.commercial,
@@ -56,8 +63,8 @@ router.get('/excel', async (req, res) => {
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
       { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 6 }, { wch: 15 },
-      { wch: 25 }, { wch: 6 }, { wch: 30 }, { wch: 20 }, { wch: 25 },
-      { wch: 18 }, { wch: 18 },
+      { wch: 25 }, { wch: 20 }, { wch: 6 }, { wch: 30 }, { wch: 20 },
+      { wch: 25 }, { wch: 18 }, { wch: 18 },
     ];
     XLSX.utils.book_append_sheet(wb, ws, 'Impayes');
 

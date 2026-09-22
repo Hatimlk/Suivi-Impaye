@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { sendCommercialActionNotification } from '../services/mailer.js';
 import {
   validate,
   createDossierSchema,
@@ -840,6 +841,28 @@ router.post('/:id/actions', validate(createActionSchema), async (req, res) => {
     );
 
     await logAudit(req.user.id, req.params.id, 'action', { action_id: result.rows[0].id, type_action });
+
+    // Notifier le commercial affecté lorsqu'un autre utilisateur ajoute une action.
+    if (dossier.commercial_id && dossier.commercial_id !== req.user.id) {
+      const commercialResult = await query(
+        "SELECT nom, email FROM users WHERE id = $1 AND actif = true AND role = 'commercial'",
+        [dossier.commercial_id]
+      );
+
+      if (commercialResult.rows[0]?.email) {
+        try {
+          await sendCommercialActionNotification({
+            commercial: commercialResult.rows[0],
+            dossier,
+            action: result.rows[0],
+            auteurNom: req.user.nom || 'Un utilisateur',
+          });
+        } catch (mailError) {
+          // L'action reste enregistrée même si le SMTP est momentanément indisponible.
+          console.error('Erreur notification email:', mailError.message);
+        }
+      }
+    }
 
     res.status(201).json(actionAvecAuteur.rows[0]);
   } catch (err) {

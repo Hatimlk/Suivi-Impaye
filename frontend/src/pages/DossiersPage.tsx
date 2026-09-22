@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { formatMontant, formatDate, joursDepuis, cn } from '../utils';
+import { formatMontant, formatDate, joursDepuis, getPorteur, cn } from '../utils';
 import type { Dossier } from '../types';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, StatusBadge, Button, Input, Select,
@@ -348,6 +348,7 @@ export default function DossiersPage() {
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
+                <Th>Porteur</Th>
                 <Th>Observation</Th>
                 <Th>Relation</Th>
                 <Th>Commercial</Th>
@@ -373,8 +374,14 @@ export default function DossiersPage() {
                   </Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
+                  <Td
+                    className="text-gray-700 font-medium max-w-[160px] truncate"
+                    title={getPorteur(d.nom_tire, d.relation)}
+                  >
+                    {getPorteur(d.nom_tire, d.relation)}
+                  </Td>
                   <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
-                    {d.observations?.split(' | Date facture :')[0] || '-'}
+                    {d.observations?.split(' | Date facture :')[0] || ''}
                   </Td>
                   <Td className="text-gray-600">{d.relation === 'CD' ? 'CD' : 'CDC'}</Td>
                   <Td className="text-gray-600 max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
