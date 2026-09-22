@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { formatMontant, formatDate, formatDateTime, joursDepuis } from '../utils';
+import { formatMontant, formatDate, formatDateTime, joursDepuis, getPorteur } from '../utils';
 import type { Dossier, Action } from '../types';
 import { Card, Button, Select, Textarea, Input, Modal, StatusBadge, Badge, PageSpinner, EmptyState } from '../components/ui';
 import {
@@ -83,7 +83,7 @@ export default function DossierDetailPage() {
       type_valeur: dossier.type_valeur,
       numero_valeur: dossier.numero_valeur,
       nom_tire: dossier.nom_tire,
-      porteur: dossier.porteur || '',
+      porteur: dossier.porteur || getPorteur(dossier.nom_tire, dossier.relation).replace('-', ''),
       relation: dossier.relation,
       observations: dossier.observations || '',
       statut: dossier.statut,
@@ -252,7 +252,7 @@ export default function DossierDetailPage() {
             label="Relation"
             value={dossier.relation === 'CD' ? 'Client Direct' : 'Client de Client'}
           />
-          <InfoField icon={User} label="Porteur" value={dossier.porteur || '-'} />
+          <InfoField icon={User} label="Porteur" value={dossier.porteur || getPorteur(dossier.nom_tire, dossier.relation)} />
           <InfoField icon={User} label="Commercial" value={dossier.commercial_nom || '-'} />
           <InfoField
             icon={Clock}

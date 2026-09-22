@@ -377,9 +377,9 @@ export default function DossiersPage() {
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
                   <Td
                     className="text-gray-700 font-medium max-w-[160px] truncate"
-                    title={d.porteur || '-'}
+                    title={d.porteur || getPorteur(d.nom_tire, d.relation)}
                   >
-                    {d.porteur || '-'}
+                    {d.porteur || getPorteur(d.nom_tire, d.relation)}
                   </Td>
                   <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
                     {d.observations?.split(' | Date facture :')[0] || ''}
