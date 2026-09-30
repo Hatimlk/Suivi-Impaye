@@ -176,22 +176,10 @@ export default function DossierDetailPage() {
           Retour à la liste
         </button>
         <div className="flex items-center gap-2">
-          {user?.role !== 'lecture_seule' && (
-            <Button variant="outline" onClick={openEditModal}>
-              <Pencil className="w-4 h-4" />
-              Modifier
-            </Button>
-          )}
           <Button variant="outline" onClick={handlePrint}>
             <Printer className="w-4 h-4" />
             Imprimer
           </Button>
-          {(user?.role === 'admin' || user?.role === 'responsable_recouvrement') && (
-            <Button variant="danger" onClick={handleDelete}>
-              <Trash2 className="w-4 h-4" />
-              Supprimer
-            </Button>
-          )}
         </div>
       </div>
 

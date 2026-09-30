@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import dossierRoutes from './routes/dossiers.js';
 import adminRoutes from './routes/admin.js';
 import exportRoutes from './routes/export.js';
+import erpRoutes from './routes/erp.js';
 import { query } from './config/db.js';
 
 dotenv.config();
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dossiers', dossierRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/erp', erpRoutes);
 
 // Health check
 app.get('/api/health', async (req, res) => {

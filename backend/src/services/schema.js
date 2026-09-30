@@ -2,6 +2,7 @@ import { query } from '../config/db.js';
 
 let porteurMigrationPromise;
 let partenairesMigrationPromise;
+let erpTrackingMigrationPromise;
 
 /**
  * Migration légère et idempotente pour les environnements serverless où le
@@ -53,4 +54,35 @@ export function ensurePartenairesTable() {
     });
   }
   return partenairesMigrationPromise;
+}
+
+export function ensureErpTrackingTables() {
+  if (!erpTrackingMigrationPromise) {
+    erpTrackingMigrationPromise = query(`
+      CREATE TABLE IF NOT EXISTS erp_dossier_suivi (
+        erp_voucher_id INTEGER PRIMARY KEY,
+        statut VARCHAR(255) NOT NULL DEFAULT 'Attente retour du client',
+        observations TEXT NOT NULL DEFAULT '',
+        commercial_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        date_derniere_action TIMESTAMP WITH TIME ZONE,
+        date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        date_derniere_modification TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS erp_actions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        erp_voucher_id INTEGER NOT NULL,
+        auteur_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        contenu TEXT NOT NULL,
+        type_action VARCHAR(100) DEFAULT 'relance',
+        date_action TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_erp_actions_voucher ON erp_actions(erp_voucher_id);
+      CREATE INDEX IF NOT EXISTS idx_erp_suivi_commercial ON erp_dossier_suivi(commercial_id);
+    `).catch((error) => {
+      erpTrackingMigrationPromise = undefined;
+      throw error;
+    });
+  }
+  return erpTrackingMigrationPromise;
 }

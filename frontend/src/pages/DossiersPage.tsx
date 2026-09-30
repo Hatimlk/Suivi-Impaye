@@ -203,26 +203,7 @@ export default function DossiersPage() {
       <PageHeader
         title="Dossiers Impayés"
         subtitle={`${total} dossier(s) au total`}
-        actions={
-          <>
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Exporter</span>
-            </Button>
-            {user?.role !== 'lecture_seule' && (
-              <>
-                <Button variant="outline" onClick={openImport}>
-                  <Upload className="w-4 h-4" />
-                  <span className="hidden sm:inline">Importer</span>
-                </Button>
-                <Button onClick={openNewDossier}>
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nouveau dossier</span>
-                </Button>
-              </>
-            )}
-          </>
-        }
+        actions={<Badge tone="info">Source OpenPROD</Badge>}
       />
 
       <Card padding="sm">
@@ -427,15 +408,6 @@ export default function DossiersPage() {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      {user?.role !== 'lecture_seule' && (
-                        <button
-                          onClick={() => openEditDossier(d)}
-                          className="p-1.5 hover:bg-brand-50 rounded-lg transition text-brand-600"
-                          title="Modifier le dossier"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      )}
                     </div>
                   </Td>
                 </Tr>

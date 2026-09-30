@@ -4,6 +4,7 @@ import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
 import { ensurePartenairesTable } from '../services/schema.js';
+import { checkErpConnection, getErpConfigurationStatus } from '../config/erpDb.js';
 import {
   validate,
   createUserSchema,
@@ -15,6 +16,39 @@ import {
 
 const router = Router();
 router.use(authenticateToken);
+
+// ====================== CONNEXION ERP ======================
+
+router.get('/erp/status', requireRole('admin'), async (_req, res) => {
+  const configuration = getErpConfigurationStatus();
+  if (!configuration.configured) {
+    return res.status(503).json({
+      status: 'not_configured',
+      missing: configuration.missing,
+      host: configuration.host,
+      database: configuration.database,
+    });
+  }
+
+  try {
+    const result = await checkErpConnection();
+    res.json({
+      status: 'connected',
+      host: configuration.host,
+      database: result.database,
+      readOnly: result.read_only === 'on',
+      checkedAt: result.checked_at,
+    });
+  } catch (error) {
+    console.error('Verification connexion ERP:', error.message);
+    res.status(503).json({
+      status: 'unavailable',
+      host: configuration.host,
+      database: configuration.database,
+      error: 'Connexion ERP indisponible',
+    });
+  }
+});
 
 // ====================== PARTENAIRES ======================
 

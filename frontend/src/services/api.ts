@@ -77,26 +77,26 @@ export const api = {
   // Dossiers
   getDossiers: (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
-    return request<any>(`/dossiers?${qs}`);
+    return request<any>(`/erp/impayes?${qs}`);
   },
-  getDossier: (id: string) => request<any>(`/dossiers/${id}`),
-  getPartenaires: () => request<string[]>('/dossiers/partenaires'),
+  getDossier: (id: string) => request<any>(`/erp/impayes/${id}`),
+  getPartenaires: () => request<string[]>('/erp/partenaires'),
   getCalendrier: () => request<any[]>('/dossiers/calendrier'),
   createDossier: (data: any) => request<any>('/dossiers', { method: 'POST', body: JSON.stringify(data) }),
   updateDossier: (id: string, data: any) =>
     request<any>(`/dossiers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   updateStatut: (id: string, statut: string) =>
-    request<any>(`/dossiers/${id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut }) }),
+    request<any>(`/erp/impayes/${id}/statut`, { method: 'PATCH', body: JSON.stringify({ statut }) }),
   reaffecter: (id: string, commercial_id: string) =>
-    request<any>(`/dossiers/${id}/reaffecter`, { method: 'PATCH', body: JSON.stringify({ commercial_id }) }),
+    request<any>(`/erp/impayes/${id}/reaffecter`, { method: 'PATCH', body: JSON.stringify({ commercial_id }) }),
   deleteDossier: (id: string) => request<any>(`/dossiers/${id}`, { method: 'DELETE' }),
 
   // Actions
   addAction: (dossierId: string, data: { contenu: string; type_action?: string }) =>
-    request<any>(`/dossiers/${dossierId}/actions`, { method: 'POST', body: JSON.stringify(data) }),
+    request<any>(`/erp/impayes/${dossierId}/actions`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Stats & Alerts
-  getStats: () => request<any>('/dossiers/stats'),
+  getStats: () => request<any>('/erp/stats'),
   getAlerts: () => request<any>('/dossiers/alerts'),
 
   // Admin
