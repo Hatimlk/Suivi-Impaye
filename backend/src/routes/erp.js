@@ -1,7 +1,5 @@
 import { Router } from 'express';
-import { erpQuery } from '../config/erpDb.js';
-import { authenticateToken } from '../middleware/auth.js';
-import { requireRole } from '../middleware/auth.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { query } from '../config/db.js';
 import { ensureErpTrackingTables } from '../services/schema.js';
 import { validate, createActionSchema } from '../schemas/validation.js';
@@ -24,62 +22,55 @@ function parseErpId(value) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-function mergeTracking(row, tracking) {
+const selectDossier = `
+  SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
+         s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
+         s.date_derniere_modification, u.nom AS suivi_commercial_nom
+  FROM erp_impayes_snapshot v
+  LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+  LEFT JOIN users u ON u.id = s.commercial_id
+`;
+
+function mapDossier(row) {
   return {
-    ...row,
-    id: `erp-${row.id}`,
+    id: `erp-${row.erp_voucher_id}`,
     source: 'ERP',
-    statut: tracking?.statut || 'Attente retour du client',
-    observations: tracking?.observations || '',
-    commercial_id: tracking?.commercial_id || null,
-    commercial_nom: tracking?.commercial_nom || row.commercial_nom || null,
-    date_derniere_action: tracking?.date_derniere_action || null,
-    date_creation: tracking?.date_creation || row.date_saisie,
-    date_derniere_modification: tracking?.date_derniere_modification || row.date_saisie,
+    date_saisie: row.date_saisie,
+    date_facture: row.date_facture,
+    date_echeance: row.date_echeance,
+    montant: Number(row.montant || 0),
+    type_valeur: row.type_valeur,
+    numero_valeur: row.numero_valeur,
+    nom_tire: row.nom_tire,
+    porteur: row.porteur || '',
+    relation: row.relation || 'CD',
+    banque: row.banque || 'Non renseignee',
+    statut: row.suivi_statut || 'Attente retour du client',
+    observations: row.suivi_observations || '',
+    commercial_id: row.commercial_id || null,
+    commercial_nom: row.suivi_commercial_nom || row.erp_commercial_nom || null,
+    date_derniere_action: row.date_derniere_action || null,
+    date_creation: row.suivi_date_creation || row.synced_at,
+    date_derniere_modification: row.date_derniere_modification || row.synced_at,
     date_cloture: null,
   };
 }
 
-const baseSelect = `
-  SELECT
-    v.id,
-    v.impaye_date AS date_saisie,
-    v.date AS date_facture,
-    COALESCE(v.date_due, v.check_end_date, v.boe_end_date) AS date_echeance,
-    COALESCE(v.amount, 0) AS montant,
-    CASE WHEN v.check_journal THEN 'CHQ' WHEN v.boe_journal THEN 'LCN' ELSE 'CHQ' END AS type_valeur,
-    COALESCE(NULLIF(v.number, ''), NULLIF(v.reference, ''), v.id::text) AS numero_valeur,
-    COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''), 'Client ERP') AS nom_tire,
-    COALESCE(v.porteur_cheque, '') AS porteur,
-    'CD'::text AS relation,
-    CASE WHEN v.collecting_bank IS NULL THEN 'Non renseignee' ELSE 'Banque #' || v.collecting_bank::text END AS banque,
-    'Impaye ERP'::text AS statut,
-    COALESCE(p.seller_id_name, '') AS commercial_nom,
-    v.partner_id AS erp_partner_id,
-    v.state AS erp_state
-  FROM account_voucher v
-  LEFT JOIN res_partner p ON p.id = v.partner_id
-`;
-
-function buildFilters(query) {
-  const conditions = ["v.state = 'impaye'", "v.type = 'receipt'", 'v.impaye_date IS NOT NULL'];
+function buildFilters(requestQuery) {
+  const conditions = ['v.actif = true'];
   const params = [];
   const add = (sql, value) => {
     params.push(value);
     conditions.push(sql.split('?').join(`$${params.length}`));
   };
-
-  if (query.search) add(`(p.name ILIKE ? OR p.display_name ILIKE ? OR v.number ILIKE ? OR v.reference ILIKE ?)`, `%${query.search}%`);
-  // Le même paramètre est utilisé quatre fois dans le filtre de recherche.
-  if (query.search) conditions[conditions.length - 1] = conditions[conditions.length - 1].replace(/\$\d+/g, `$${params.length}`);
-  if (query.nom_tire) add('(p.name ILIKE ? OR p.display_name ILIKE ?)', `%${query.nom_tire}%`);
-  if (query.nom_tire) conditions[conditions.length - 1] = conditions[conditions.length - 1].replace(/\$\d+/g, `$${params.length}`);
-  if (query.type_valeur === 'CHQ') conditions.push('v.check_journal = true');
-  if (query.type_valeur === 'LCN') conditions.push('v.boe_journal = true');
-  if (query.date_debut) add('v.impaye_date >= ?', query.date_debut);
-  if (query.date_fin) add('v.impaye_date <= ?', query.date_fin);
-  if (query.montant_min) add('v.amount >= ?', Number(query.montant_min));
-  if (query.montant_max) add('v.amount <= ?', Number(query.montant_max));
+  if (requestQuery.search) add('(v.nom_tire ILIKE ? OR v.numero_valeur ILIKE ? OR v.banque ILIKE ?)', `%${requestQuery.search}%`);
+  if (requestQuery.nom_tire) add('v.nom_tire ILIKE ?', `%${requestQuery.nom_tire}%`);
+  if (requestQuery.type_valeur) add('v.type_valeur = ?', requestQuery.type_valeur);
+  if (requestQuery.date_debut) add('v.date_saisie >= ?', requestQuery.date_debut);
+  if (requestQuery.date_fin) add('v.date_saisie <= ?', requestQuery.date_fin);
+  if (requestQuery.montant_min) add('v.montant >= ?', Number(requestQuery.montant_min));
+  if (requestQuery.montant_max) add('v.montant <= ?', Number(requestQuery.montant_max));
+  if (requestQuery.statut) add(`COALESCE(s.statut, 'Attente retour du client') = ?`, requestQuery.statut);
   return { where: `WHERE ${conditions.join(' AND ')}`, params };
 }
 
@@ -89,59 +80,47 @@ router.get('/impayes', async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
     const offset = (page - 1) * limit;
     const { where, params } = buildFilters(req.query);
-    const sortMap = {
-      date_saisie: 'v.impaye_date', date_facture: 'v.date', date_echeance: 'v.date_due',
-      montant: 'v.amount', nom_tire: 'p.name', type_valeur: 'v.check_journal',
-    };
-    const sort = sortMap[req.query.sort] || 'v.impaye_date';
+    const sortMap = { date_saisie: 'v.date_saisie', date_facture: 'v.date_facture', date_echeance: 'v.date_echeance', montant: 'v.montant', nom_tire: 'v.nom_tire', type_valeur: 'v.type_valeur' };
+    const sort = sortMap[req.query.sort] || 'v.date_saisie';
     const order = String(req.query.order).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const [count, rows] = await Promise.all([
-      erpQuery(`SELECT COUNT(*)::int AS count FROM account_voucher v LEFT JOIN res_partner p ON p.id = v.partner_id ${where}`, params),
-      erpQuery(`${baseSelect} ${where} ORDER BY ${sort} ${order} NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, offset]),
+      query(`SELECT COUNT(*)::int AS count FROM erp_impayes_snapshot v LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id ${where}`, params),
+      query(`${selectDossier} ${where} ORDER BY ${sort} ${order} NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, offset]),
     ]);
-    const ids = rows.rows.map((row) => row.id);
-    const tracking = ids.length ? await query(
-      `SELECT s.*, u.nom AS commercial_nom FROM erp_dossier_suivi s
-       LEFT JOIN users u ON u.id = s.commercial_id WHERE s.erp_voucher_id = ANY($1::int[])`,
-      [ids]
-    ) : { rows: [] };
-    const trackingMap = new Map(tracking.rows.map((row) => [row.erp_voucher_id, row]));
-    res.json({
-      dossiers: rows.rows.map((row) => mergeTracking(row, trackingMap.get(row.id))),
-      total: count.rows[0].count,
-      page,
-      limit,
-      totalPages: Math.ceil(count.rows[0].count / limit),
-    });
+    res.json({ dossiers: rows.rows.map(mapDossier), total: count.rows[0].count, page, limit, totalPages: Math.ceil(count.rows[0].count / limit) });
   } catch (error) {
-    console.error('Erreur liste impayes ERP:', error.message);
-    res.status(503).json({ error: 'Donnees ERP indisponibles' });
+    console.error('Erreur liste impayes synchronises:', error.message);
+    res.status(503).json({ error: 'Donnees ERP synchronisees indisponibles' });
   }
 });
 
 router.get('/impayes/:id', async (req, res) => {
   const id = parseErpId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
+  const result = await query(`${selectDossier} WHERE v.erp_voucher_id = $1 AND v.actif = true`, [id]);
+  if (!result.rows[0]) return res.status(404).json({ error: 'Impaye ERP introuvable' });
+  const dossier = mapDossier(result.rows[0]);
+  if (req.user.role === 'commercial' && dossier.commercial_id && dossier.commercial_id !== req.user.id) return res.status(403).json({ error: 'Acces refuse' });
+  const actions = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.erp_voucher_id = $1 ORDER BY a.date_action DESC`, [id]);
+  res.json({ ...dossier, actions: actions.rows });
+});
+
+router.get('/partenaires', async (_req, res) => {
+  const result = await query(`SELECT DISTINCT nom_tire AS nom FROM erp_impayes_snapshot WHERE actif = true AND nom_tire <> '' ORDER BY nom`);
+  res.json(result.rows.map((row) => row.nom));
+});
+
+router.get('/stats', async (_req, res) => {
   try {
-    const erp = await erpQuery(`${baseSelect} WHERE v.id = $1 AND v.state = 'impaye'`, [id]);
-    if (!erp.rows[0]) return res.status(404).json({ error: 'Impaye ERP introuvable' });
-    const tracking = await query(
-      `SELECT s.*, u.nom AS commercial_nom FROM erp_dossier_suivi s
-       LEFT JOIN users u ON u.id = s.commercial_id WHERE s.erp_voucher_id = $1`, [id]
-    );
-    const actions = await query(
-      `SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom
-       FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id
-       WHERE a.erp_voucher_id = $1 ORDER BY a.date_action DESC`, [id]
-    );
-    const dossier = mergeTracking(erp.rows[0], tracking.rows[0]);
-    if (req.user.role === 'commercial' && dossier.commercial_id && dossier.commercial_id !== req.user.id) {
-      return res.status(403).json({ error: 'Acces refuse a ce dossier' });
-    }
-    res.json({ ...dossier, actions: actions.rows });
+    const [total, types, monthly, sync] = await Promise.all([
+      query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(montant), 0)::float8 AS montant, MAX(date_saisie) AS date_reference FROM erp_impayes_snapshot WHERE actif = true`),
+      query(`SELECT type_valeur, COUNT(*)::int AS count, COALESCE(SUM(montant), 0)::float8 AS total_montant FROM erp_impayes_snapshot WHERE actif = true GROUP BY type_valeur ORDER BY type_valeur`),
+      query(`SELECT TO_CHAR(date_saisie, 'YYYY-MM') AS mois, COUNT(*)::int AS count, COALESCE(SUM(montant), 0)::float8 AS total_montant FROM erp_impayes_snapshot WHERE actif = true GROUP BY 1 ORDER BY 1`),
+      query(`SELECT MAX(completed_at) AS last_sync FROM erp_sync_runs WHERE status = 'success'`),
+    ]);
+    res.json({ total: total.rows[0], parStatut: [{ statut: 'Impayes ERP', count: total.rows[0].count, total_montant: total.rows[0].montant }], parBanque: [], parCommercial: [], parType: types.rows, evolutionMensuelle: monthly.rows.slice(-12), evolutionHebdo: [], evolutionMensuelleDetail: [], evolutionAnnuelle: [], dossiersDormants: 0, lastSync: sync.rows[0].last_sync });
   } catch (error) {
-    console.error('Erreur detail ERP:', error.message);
-    res.status(503).json({ error: 'Donnees ERP indisponibles' });
+    res.status(503).json({ error: 'Donnees ERP synchronisees indisponibles' });
   }
 });
 
@@ -149,11 +128,7 @@ router.patch('/impayes/:id/statut', async (req, res) => {
   const id = parseErpId(req.params.id);
   if (!id || !req.body.statut) return res.status(400).json({ error: 'Identifiant et statut requis' });
   if (req.user.role === 'lecture_seule') return res.status(403).json({ error: 'Lecture seule' });
-  const result = await query(
-    `INSERT INTO erp_dossier_suivi (erp_voucher_id, statut) VALUES ($1, $2)
-     ON CONFLICT (erp_voucher_id) DO UPDATE SET statut = EXCLUDED.statut, date_derniere_modification = NOW()
-     RETURNING *`, [id, req.body.statut]
-  );
+  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, statut) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET statut = EXCLUDED.statut, date_derniere_modification = NOW() RETURNING *`, [id, req.body.statut]);
   await logAudit(req.user.id, null, 'erp_statut', { erp_voucher_id: id, statut: req.body.statut });
   res.json(result.rows[0]);
 });
@@ -162,66 +137,20 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   const id = parseErpId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
   if (req.user.role === 'lecture_seule') return res.status(403).json({ error: 'Lecture seule' });
-  const { contenu, type_action } = req.validated;
   await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id) VALUES ($1) ON CONFLICT DO NOTHING`, [id]);
-  const result = await query(
-    `INSERT INTO erp_actions (erp_voucher_id, auteur_id, contenu, type_action)
-     VALUES ($1, $2, $3, $4) RETURNING *`, [id, req.user.id, contenu, type_action]
-  );
+  const result = await query(`INSERT INTO erp_actions (erp_voucher_id, auteur_id, contenu, type_action) VALUES ($1, $2, $3, $4) RETURNING *`, [id, req.user.id, req.validated.contenu, req.validated.type_action]);
   await query(`UPDATE erp_dossier_suivi SET date_derniere_action = NOW(), date_derniere_modification = NOW() WHERE erp_voucher_id = $1`, [id]);
   await logAudit(req.user.id, null, 'erp_action', { erp_voucher_id: id, action_id: result.rows[0].id });
-  const action = await query(
-    `SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom
-     FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.id = $1`, [result.rows[0].id]
-  );
+  const action = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.id = $1`, [result.rows[0].id]);
   res.status(201).json(action.rows[0]);
 });
 
 router.patch('/impayes/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), async (req, res) => {
   const id = parseErpId(req.params.id);
-  const user = await query(`SELECT id, nom FROM users WHERE id = $1 AND actif = true AND role = 'commercial'`, [req.body.commercial_id]);
+  const user = await query(`SELECT id FROM users WHERE id = $1 AND actif = true AND role = 'commercial'`, [req.body.commercial_id]);
   if (!id || !user.rows[0]) return res.status(400).json({ error: 'Dossier ou commercial invalide' });
-  const result = await query(
-    `INSERT INTO erp_dossier_suivi (erp_voucher_id, commercial_id) VALUES ($1, $2)
-     ON CONFLICT (erp_voucher_id) DO UPDATE SET commercial_id = EXCLUDED.commercial_id, date_derniere_modification = NOW()
-     RETURNING *`, [id, req.body.commercial_id]
-  );
-  await logAudit(req.user.id, null, 'erp_reaffectation', { erp_voucher_id: id, commercial_id: req.body.commercial_id });
+  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, commercial_id) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET commercial_id = EXCLUDED.commercial_id, date_derniere_modification = NOW() RETURNING *`, [id, req.body.commercial_id]);
   res.json(result.rows[0]);
-});
-
-router.get('/partenaires', async (_req, res) => {
-  try {
-    const result = await erpQuery(`
-      SELECT DISTINCT COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, '')) AS nom
-      FROM account_voucher v JOIN res_partner p ON p.id = v.partner_id
-      WHERE v.state = 'impaye' AND v.type = 'receipt' AND v.impaye_date IS NOT NULL
-      ORDER BY nom
-    `);
-    res.json(result.rows.map((row) => row.nom).filter(Boolean));
-  } catch (error) {
-    res.status(503).json({ error: 'Donnees ERP indisponibles' });
-  }
-});
-
-router.get('/stats', async (_req, res) => {
-  try {
-    const [total, types, monthly] = await Promise.all([
-      erpQuery(`SELECT COUNT(*)::int AS count, COALESCE(SUM(amount), 0)::float8 AS montant, MAX(impaye_date) AS date_reference FROM account_voucher WHERE state = 'impaye' AND type = 'receipt' AND impaye_date IS NOT NULL`),
-      erpQuery(`SELECT CASE WHEN check_journal THEN 'CHQ' WHEN boe_journal THEN 'LCN' ELSE 'AUTRE' END AS type_valeur, COUNT(*)::int AS count, COALESCE(SUM(amount), 0)::float8 AS total_montant FROM account_voucher WHERE state = 'impaye' AND type = 'receipt' AND impaye_date IS NOT NULL GROUP BY 1 ORDER BY 1`),
-      erpQuery(`SELECT TO_CHAR(impaye_date, 'YYYY-MM') AS mois, COUNT(*)::int AS count, COALESCE(SUM(amount), 0)::float8 AS total_montant FROM account_voucher WHERE state = 'impaye' AND type = 'receipt' AND impaye_date IS NOT NULL GROUP BY 1 ORDER BY 1`),
-    ]);
-    res.json({
-      total: total.rows[0],
-      parStatut: [{ statut: 'Impaye ERP', count: total.rows[0].count, total_montant: total.rows[0].montant }],
-      parBanque: [], parCommercial: [], parType: types.rows,
-      evolutionMensuelle: monthly.rows.slice(-12),
-      evolutionHebdo: [], evolutionMensuelleDetail: [], evolutionAnnuelle: [], dossiersDormants: 0,
-    });
-  } catch (error) {
-    console.error('Erreur statistiques ERP:', error.message);
-    res.status(503).json({ error: 'Donnees ERP indisponibles' });
-  }
 });
 
 export default router;

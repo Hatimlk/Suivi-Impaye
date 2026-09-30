@@ -59,6 +59,36 @@ export function ensurePartenairesTable() {
 export function ensureErpTrackingTables() {
   if (!erpTrackingMigrationPromise) {
     erpTrackingMigrationPromise = query(`
+      CREATE TABLE IF NOT EXISTS erp_impayes_snapshot (
+        erp_voucher_id INTEGER PRIMARY KEY,
+        date_saisie DATE,
+        date_facture DATE,
+        date_echeance DATE,
+        montant NUMERIC(15, 2) NOT NULL DEFAULT 0,
+        type_valeur VARCHAR(10) NOT NULL,
+        numero_valeur VARCHAR(255) NOT NULL,
+        nom_tire VARCHAR(255) NOT NULL,
+        porteur VARCHAR(255) NOT NULL DEFAULT '',
+        relation VARCHAR(10) NOT NULL DEFAULT 'CD',
+        banque VARCHAR(255) NOT NULL DEFAULT 'Non renseignee',
+        erp_partner_id INTEGER,
+        erp_commercial_nom VARCHAR(255),
+        actif BOOLEAN NOT NULL DEFAULT true,
+        synced_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_erp_snapshot_actif ON erp_impayes_snapshot(actif);
+      CREATE INDEX IF NOT EXISTS idx_erp_snapshot_client ON erp_impayes_snapshot(nom_tire);
+      CREATE INDEX IF NOT EXISTS idx_erp_snapshot_date ON erp_impayes_snapshot(date_saisie);
+
+      CREATE TABLE IF NOT EXISTS erp_sync_runs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMP WITH TIME ZONE,
+        status VARCHAR(30) NOT NULL DEFAULT 'running',
+        received_count INTEGER NOT NULL DEFAULT 0,
+        details JSONB NOT NULL DEFAULT '{}'
+      );
+
       CREATE TABLE IF NOT EXISTS erp_dossier_suivi (
         erp_voucher_id INTEGER PRIMARY KEY,
         statut VARCHAR(255) NOT NULL DEFAULT 'Attente retour du client',

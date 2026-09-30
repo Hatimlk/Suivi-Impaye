@@ -34,6 +34,18 @@ GET /api/admin/erp/status
 
 La reponse doit indiquer `status: connected` et `readOnly: true`.
 
+## Synchronisation vers l'application hebergee
+
+Le backend Vercel ne peut pas joindre directement PostgreSQL, car seule l'adresse IP G5
+`102.50.250.180` est autorisee. Le script suivant doit donc etre execute depuis cette connexion :
+
+```text
+npm --prefix backend run sync-erp
+```
+
+`ERP_SYNC_SECRET` doit avoir exactement la meme valeur sur la machine G5 et dans les variables
+d'environnement Vercel. Le script transmet uniquement les impayes actifs necessaires a l'application.
+
 ## Perimetre autorise
 
 Le compte a uniquement le droit de lecture sur :

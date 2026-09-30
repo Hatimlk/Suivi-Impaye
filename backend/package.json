@@ -9,6 +9,7 @@
     "import-excel": "node src/scripts/importExcel.js",
     "inspect-erp": "node src/scripts/inspectErpSchema.js",
     "backup-clear-dossiers": "node src/scripts/backupAndClearDossiers.js --confirm-clear-dossiers",
+    "sync-erp": "node src/scripts/syncErpToApp.js",
     "seed": "node src/scripts/seedFromTable.js"
   },
   "dependencies": {
