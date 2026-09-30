@@ -89,6 +89,23 @@ export function ensureErpTrackingTables() {
         details JSONB NOT NULL DEFAULT '{}'
       );
 
+      CREATE TABLE IF NOT EXISTS application_migrations (
+        migration_key VARCHAR(255) PRIMARY KEY,
+        applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM application_migrations
+          WHERE migration_key = '006_remove_legacy_test_dossiers'
+        ) THEN
+          DELETE FROM dossiers;
+          INSERT INTO application_migrations (migration_key)
+          VALUES ('006_remove_legacy_test_dossiers');
+        END IF;
+      END $$;
+
       CREATE TABLE IF NOT EXISTS erp_dossier_suivi (
         erp_voucher_id INTEGER PRIMARY KEY,
         statut VARCHAR(255) NOT NULL DEFAULT 'Attente retour du client',
