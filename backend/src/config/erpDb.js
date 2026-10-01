@@ -1,7 +1,10 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: ['.env.local', '.env'] });
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+dotenv.config({ path: [resolve(projectRoot, '.env.local'), resolve(projectRoot, '.env')] });
 
 export const ERP_ALLOWED_TABLES = Object.freeze([
   'res_partner',
