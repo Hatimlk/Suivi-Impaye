@@ -106,6 +106,21 @@ export function ensureErpTrackingTables() {
         END IF;
       END $$;
 
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM application_migrations
+          WHERE migration_key = '007_users_email_gadimat_com'
+        ) THEN
+          UPDATE users
+          SET email = REGEXP_REPLACE(email, '@gadimat\\.ma$', '@gadimat.com', 'i'),
+              date_modification = NOW()
+          WHERE email ~* '@gadimat\\.ma$';
+          INSERT INTO application_migrations (migration_key)
+          VALUES ('007_users_email_gadimat_com');
+        END IF;
+      END $$;
+
       CREATE TABLE IF NOT EXISTS erp_dossier_suivi (
         erp_voucher_id INTEGER PRIMARY KEY,
         statut VARCHAR(255) NOT NULL DEFAULT 'Attente retour du client',

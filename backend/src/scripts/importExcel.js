@@ -154,7 +154,7 @@ async function ensureCommercial(client, commercialName, map) {
      VALUES ($1, $2, $3, 'commercial', true)
      ON CONFLICT (email) DO UPDATE SET nom = EXCLUDED.nom
      RETURNING id`,
-    [commercialName, `${slug}@gadimat.ma`, password],
+    [commercialName, `${slug}@gadimat.com`, password],
   );
   map.set(key, result.rows[0].id);
   return result.rows[0].id;
@@ -186,8 +186,8 @@ async function main() {
     await client.query('BEGIN');
     const userRows = await client.query("SELECT id, nom FROM users WHERE role = 'commercial'");
     for (const user of userRows.rows) {
-      if (normalizeName(user.nom) === 'dirct' || (normalizeName(user.nom) === 'direction' && user.email === 'dirct@gadimat.ma')) {
-        await client.query("UPDATE users SET nom = 'DIRECTION', email = 'direction@gadimat.ma' WHERE id = $1", [user.id]);
+      if (normalizeName(user.nom) === 'dirct' || (normalizeName(user.nom) === 'direction' && user.email === 'dirct@gadimat.com')) {
+        await client.query("UPDATE users SET nom = 'DIRECTION', email = 'direction@gadimat.com' WHERE id = $1", [user.id]);
         user.nom = 'DIRECTION';
       }
     }

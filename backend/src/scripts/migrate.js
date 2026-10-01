@@ -44,25 +44,25 @@ async function migrate() {
     console.log('Migration 005 terminee: referentiel partenaires cree');
 
     // Creer l'admin par defaut
-    const adminExists = await client.query("SELECT id FROM users WHERE email = 'admin@gadimat.ma'");
+    const adminExists = await client.query("SELECT id FROM users WHERE email = 'admin@gadimat.com'");
     if (adminExists.rows.length === 0) {
       const hash = await bcrypt.hash('admin123', 12);
       await client.query(
         "INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)",
-        ['Administrateur', 'admin@gadimat.ma', hash, 'admin']
+        ['Administrateur', 'admin@gadimat.com', hash, 'admin']
       );
-      console.log('Utilisateur admin cree: admin@gadimat.ma / admin123');
+      console.log('Utilisateur admin cree: admin@gadimat.com / admin123');
     }
 
     // Creer le Directeur General (Franck Guillet)
-    const franckExists = await client.query("SELECT id FROM users WHERE email = 'franck.guillet@gadimat.ma'");
+    const franckExists = await client.query("SELECT id FROM users WHERE email = 'franck.guillet@gadimat.com'");
     if (franckExists.rows.length === 0) {
       const hash = await bcrypt.hash('franck2026', 12);
       await client.query(
         "INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)",
-        ['Franck Guillet', 'franck.guillet@gadimat.ma', hash, 'admin']
+        ['Franck Guillet', 'franck.guillet@gadimat.com', hash, 'admin']
       );
-      console.log('Utilisateur DG cree: franck.guillet@gadimat.ma / franck2026');
+      console.log('Utilisateur DG cree: franck.guillet@gadimat.com / franck2026');
     }
 
     console.log('Toutes les migrations sont terminees avec succes!');

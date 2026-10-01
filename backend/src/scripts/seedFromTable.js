@@ -14,12 +14,12 @@ const pool = new Pool({
 });
 
 const commercialsList = [
-  { nom: 'Fahd', email: 'fahd@gadimat.ma' },
-  { nom: 'Nabil', email: 'nabil@gadimat.ma' },
-  { nom: 'Lahcen', email: 'lahcen@gadimat.ma' },
-  { nom: 'Naoufal', email: 'naoufal@gadimat.ma' },
-  { nom: 'Faycal', email: 'faycal@gadimat.ma' },
-  { nom: 'Rachid', email: 'rachid@gadimat.ma' },
+  { nom: 'Fahd', email: 'fahd@gadimat.com' },
+  { nom: 'Nabil', email: 'nabil@gadimat.com' },
+  { nom: 'Lahcen', email: 'lahcen@gadimat.com' },
+  { nom: 'Naoufal', email: 'naoufal@gadimat.com' },
+  { nom: 'Faycal', email: 'faycal@gadimat.com' },
+  { nom: 'Rachid', email: 'rachid@gadimat.com' },
 ];
 
 const banquesList = ['BMCI', 'BP', 'CAM', 'AWB', 'BMCE', 'Attijariwafa Bank', 'CIH Bank', 'Crédit du Maroc'];
@@ -297,7 +297,7 @@ async function seedData() {
     // DG
     await client.query(
       `INSERT INTO users (nom, email, mot_de_passe_hash, role, actif)
-       VALUES ('Franck Guillet', 'franck.guillet@gadimat.ma', $1, 'admin', true)
+       VALUES ('Franck Guillet', 'franck.guillet@gadimat.com', $1, 'admin', true)
        ON CONFLICT (email) DO UPDATE SET nom = EXCLUDED.nom, role = 'admin'`,
       [dgPasswordHash]
     );
