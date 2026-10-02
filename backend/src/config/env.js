@@ -1,10 +1,20 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+function requireSecret(name) {
+  const value = process.env[name];
+  if (!value || value.length < 16) {
+    throw new Error(
+      `${name} doit etre defini dans l'environnement avec au moins 16 caracteres (aucune valeur par defaut n'est autorisee)`
+    );
+  }
+  return value;
+}
+
 export default {
   port: parseInt(process.env.PORT || '3001', 10),
-  jwtSecret: process.env.JWT_SECRET || 'fallback-secret',
-  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret',
+  jwtSecret: requireSecret('JWT_SECRET'),
+  jwtRefreshSecret: requireSecret('JWT_REFRESH_SECRET'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',

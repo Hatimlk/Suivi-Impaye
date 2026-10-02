@@ -43,26 +43,41 @@ async function migrate() {
     await client.query(migration5);
     console.log('Migration 005 terminee: referentiel partenaires cree');
 
-    // Creer l'admin par defaut
-    const adminExists = await client.query("SELECT id FROM users WHERE email = 'admin@gadimat.com'");
+    // Creer l'admin par defaut (mot de passe fourni obligatoirement via l'environnement)
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gadimat.com';
+    const adminExists = await client.query('SELECT id FROM users WHERE email = $1', [adminEmail]);
     if (adminExists.rows.length === 0) {
-      const hash = await bcrypt.hash('admin123', 12);
-      await client.query(
-        "INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)",
-        ['Administrateur', 'admin@gadimat.com', hash, 'admin']
-      );
-      console.log('Utilisateur admin cree: admin@gadimat.com / admin123');
+      if (!process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD.length < 8) {
+        console.warn(
+          `Utilisateur admin NON cree: definissez ADMIN_PASSWORD (>= 8 caracteres) et relancez la migration pour creer ${adminEmail}`
+        );
+      } else {
+        const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
+        await client.query(
+          'INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)',
+          [process.env.ADMIN_NOM || 'Administrateur', adminEmail, hash, 'admin']
+        );
+        console.log(`Utilisateur admin cree: ${adminEmail}`);
+      }
     }
 
-    // Creer le Directeur General (Franck Guillet)
-    const franckExists = await client.query("SELECT id FROM users WHERE email = 'franck.guillet@gadimat.com'");
-    if (franckExists.rows.length === 0) {
-      const hash = await bcrypt.hash('franck2026', 12);
-      await client.query(
-        "INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)",
-        ['Franck Guillet', 'franck.guillet@gadimat.com', hash, 'admin']
-      );
-      console.log('Utilisateur DG cree: franck.guillet@gadimat.com / franck2026');
+    // Creer le Directeur General (mot de passe fourni obligatoirement via l'environnement)
+    if (process.env.DG_EMAIL) {
+      const dgExists = await client.query('SELECT id FROM users WHERE email = $1', [process.env.DG_EMAIL]);
+      if (dgExists.rows.length === 0) {
+        if (!process.env.DG_PASSWORD || process.env.DG_PASSWORD.length < 8) {
+          console.warn(
+            `Utilisateur DG NON cree: definissez DG_PASSWORD (>= 8 caracteres) et relancez la migration pour creer ${process.env.DG_EMAIL}`
+          );
+        } else {
+          const hash = await bcrypt.hash(process.env.DG_PASSWORD, 12);
+          await client.query(
+            'INSERT INTO users (nom, email, mot_de_passe_hash, role, actif) VALUES ($1, $2, $3, $4, true)',
+            [process.env.DG_NOM || 'Directeur General', process.env.DG_EMAIL, hash, 'admin']
+          );
+          console.log(`Utilisateur DG cree: ${process.env.DG_EMAIL}`);
+        }
+      }
     }
 
     console.log('Toutes les migrations sont terminees avec succes!');

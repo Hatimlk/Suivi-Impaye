@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
@@ -16,6 +17,25 @@ import {
 
 const router = Router();
 router.use(authenticateToken);
+
+function generateRandomPassword(length = 14) {
+  const categories = [
+    'ABCDEFGHJKLMNPQRSTUVWXYZ',
+    'abcdefghijkmnopqrstuvwxyz',
+    '23456789',
+    '!@#$%^&*-_=+',
+  ];
+  const all = categories.join('');
+  const chars = categories.map((cat) => cat[crypto.randomInt(cat.length)]);
+  while (chars.length < length) {
+    chars.push(all[crypto.randomInt(all.length)]);
+  }
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
 
 // ====================== CONNEXION ERP ======================
 
@@ -165,6 +185,33 @@ router.put('/users/:id', requireRole('admin'), validate(updateUserSchema), async
     await logAudit(req.user.id, null, 'update_user', { user_id: req.params.id });
     res.json(result.rows[0]);
   } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+router.post('/users/:id/reset-password', requireRole('admin'), async (req, res) => {
+  try {
+    const existing = await query('SELECT id, email FROM users WHERE id = $1', [req.params.id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur introuvable' });
+    }
+
+    const newPassword = generateRandomPassword();
+    const hash = await bcrypt.hash(newPassword, 12);
+    await query('UPDATE users SET mot_de_passe_hash = $1, date_modification = NOW() WHERE id = $2', [
+      hash,
+      req.params.id,
+    ]);
+    // Invalide toutes les sessions actives : l'utilisateur doit se reconnecter avec le nouveau mot de passe
+    await query('DELETE FROM refresh_tokens WHERE user_id = $1', [req.params.id]);
+    await logAudit(req.user.id, null, 'reset_user_password', {
+      user_id: req.params.id,
+      email: existing.rows[0].email,
+    });
+
+    res.json({ password: newPassword });
+  } catch (err) {
+    console.error('Erreur reset password:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

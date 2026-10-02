@@ -25,6 +25,9 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
         if (refreshRes.ok) {
           const data = await refreshRes.json();
           localStorage.setItem('accessToken', data.accessToken);
+          if (data.refreshToken) {
+            localStorage.setItem('refreshToken', data.refreshToken);
+          }
           headers['Authorization'] = `Bearer ${data.accessToken}`;
           const retryRes = await fetch(`${API_BASE}${url}`, { ...options, headers });
           if (!retryRes.ok) {
@@ -105,6 +108,8 @@ export const api = {
   updateUser: (id: string, data: any) =>
     request<any>(`/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   toggleUser: (id: string) => request<any>(`/admin/users/${id}/toggle`, { method: 'PATCH' }),
+  resetUserPassword: (id: string) =>
+    request<{ password: string }>(`/admin/users/${id}/reset-password`, { method: 'POST' }),
 
   getBanques: () => request<any[]>('/admin/banques'),
   createBanque: (nom: string) =>

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
@@ -7,6 +8,21 @@ import { validate, loginSchema } from '../schemas/validation.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+async function issueRefreshToken(userId) {
+  const refreshToken = jwt.sign({ id: userId }, config.jwtRefreshSecret, { expiresIn: config.jwtRefreshExpiresIn });
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  await query(
+    'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+    [userId, hashToken(refreshToken), expiresAt]
+  );
+  return refreshToken;
+}
 
 // POST /api/auth/login
 router.post('/login', validate(loginSchema), async (req, res) => {
@@ -32,15 +48,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     };
 
     const accessToken = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
-    const refreshToken = jwt.sign({ id: user.id }, config.jwtRefreshSecret, { expiresIn: config.jwtRefreshExpiresIn });
-
-    // Stocker le refresh token
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    await query(
-      'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, refreshToken, expiresAt]
-    );
+    const refreshToken = await issueRefreshToken(user.id);
 
     res.json({
       accessToken,
@@ -66,9 +74,10 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Refresh token requis' });
     }
 
+    const tokenHash = hashToken(refreshToken);
     const result = await query(
       'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
-      [refreshToken]
+      [tokenHash]
     );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Refresh token invalide ou expiré' });
@@ -77,6 +86,7 @@ router.post('/refresh', async (req, res) => {
     const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
     const userResult = await query('SELECT * FROM users WHERE id = $1 AND actif = true', [decoded.id]);
     if (userResult.rows.length === 0) {
+      await query('DELETE FROM refresh_tokens WHERE token = $1', [tokenHash]);
       return res.status(401).json({ error: 'Utilisateur introuvable ou désactivé' });
     }
 
@@ -88,9 +98,12 @@ router.post('/refresh', async (req, res) => {
       role: user.role,
     };
 
+    // Rotation : le refresh token utilisé est invalidé et remplacé
+    await query('DELETE FROM refresh_tokens WHERE token = $1', [tokenHash]);
     const newAccessToken = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
+    const newRefreshToken = await issueRefreshToken(user.id);
 
-    res.json({ accessToken: newAccessToken });
+    res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
   } catch (err) {
     console.error('Erreur refresh:', err);
     res.status(401).json({ error: 'Token invalide' });
@@ -102,7 +115,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (refreshToken) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [refreshToken]);
+      await query('DELETE FROM refresh_tokens WHERE token = $1', [hashToken(refreshToken)]);
     }
     res.json({ message: 'Déconnexion réussie' });
   } catch (err) {

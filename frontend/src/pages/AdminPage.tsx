@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [editUser, setEditUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({ nom: '', email: '', mot_de_passe: '', role: 'lecture_seule' as UserRole });
   const [userSubmitting, setUserSubmitting] = useState(false);
+  const [resetSubmittingId, setResetSubmittingId] = useState<string | null>(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState<{ email: string; password: string } | null>(null);
 
   const [banques, setBanques] = useState<BanqueRef[]>([]);
   const [banquesLoading, setBanquesLoading] = useState(false);
@@ -195,6 +197,19 @@ export default function AdminPage() {
       loadUsers();
     } catch (err: any) {
       alert(err.message || 'Erreur lors du basculement');
+    }
+  };
+
+  const handleResetPassword = async (u: User) => {
+    if (!confirm(`Générer un nouveau mot de passe pour ${u.email} ?\n\nSes sessions actives seront déconnectées.`)) return;
+    try {
+      setResetSubmittingId(u.id);
+      const { password } = await api.resetUserPassword(u.id);
+      setResetPasswordResult({ email: u.email, password });
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la réinitialisation du mot de passe');
+    } finally {
+      setResetSubmittingId(null);
     }
   };
 
@@ -390,9 +405,19 @@ export default function AdminPage() {
                       </Td>
                       <Td className="text-gray-600">{formatDate(u.date_creation)}</Td>
                       <Td align="center">
-                        <Button variant="secondary" size="sm" onClick={() => openEditUser(u)}>
-                          Modifier
-                        </Button>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => openEditUser(u)}>
+                            Modifier
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            loading={resetSubmittingId === u.id}
+                            onClick={() => handleResetPassword(u)}
+                          >
+                            Réinitialiser
+                          </Button>
+                        </div>
                       </Td>
                     </Tr>
                   ))}
@@ -747,6 +772,41 @@ export default function AdminPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={!!resetPasswordResult}
+        onClose={() => setResetPasswordResult(null)}
+        title="Nouveau mot de passe généré"
+      >
+        {resetPasswordResult && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Communiquez ce mot de passe à <strong>{resetPasswordResult.email}</strong> vous-même (en main propre, par
+              téléphone, etc.). Il ne sera plus affiché après fermeture de cette fenêtre.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 bg-gray-100 rounded-lg text-sm font-mono break-all">
+                {resetPasswordResult.password}
+              </code>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard?.writeText(resetPasswordResult.password).catch(() => {});
+                }}
+              >
+                Copier
+              </Button>
+            </div>
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setResetPasswordResult(null)}>
+                Fermer
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

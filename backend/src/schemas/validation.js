@@ -1,22 +1,24 @@
 import { z } from 'zod';
 
+const emailField = z.string().email('Email invalide').transform((v) => v.trim().toLowerCase());
+
 export const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
+  email: emailField,
   password: z.string().min(1, 'Mot de passe requis'),
 });
 
 export const createUserSchema = z.object({
   nom: z.string().min(1, 'Nom requis').max(255),
-  email: z.string().email('Email invalide'),
-  mot_de_passe: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+  email: emailField,
+  mot_de_passe: z.string().min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
   role: z.enum(['admin', 'responsable_recouvrement', 'commercial', 'lecture_seule']),
   actif: z.boolean().optional().default(true),
 });
 
 export const updateUserSchema = z.object({
   nom: z.string().min(1).max(255).optional(),
-  email: z.string().email().optional(),
-  mot_de_passe: z.string().min(6).optional(),
+  email: emailField.optional(),
+  mot_de_passe: z.string().min(8).optional(),
   role: z.enum(['admin', 'responsable_recouvrement', 'commercial', 'lecture_seule']).optional(),
   actif: z.boolean().optional(),
 });
