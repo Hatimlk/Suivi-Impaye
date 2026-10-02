@@ -10,15 +10,16 @@ L'application utilise deux connexions PostgreSQL distinctes :
 Configurer ces variables dans l'environnement du backend ou dans Vercel :
 
 ```env
-ERP_DB_HOST=ges.gadimat.com
+ERP_DB_HOST=<fourni-par-kazacube>
 ERP_DB_PORT=5432
-ERP_DB_NAME=GADIMAT_PROD_02
-ERP_DB_USER=consult_data
+ERP_DB_NAME=<fourni-par-kazacube>
+ERP_DB_USER=<fourni-par-kazacube>
 ERP_DB_PASSWORD=<fourni-par-kazacube>
 ```
 
-Ne jamais enregistrer le mot de passe dans Git. Le serveur qui execute le backend doit sortir avec
-l'adresse IP publique autorisee `102.50.250.180`; l'ordinateur d'un utilisateur n'accede jamais
+Ne jamais enregistrer ces valeurs (hote, utilisateur, mot de passe) dans Git — y compris dans ce
+fichier. Le serveur qui execute le backend doit sortir avec l'adresse IP publique autorisee par
+Kazacube (voir le gestionnaire de secrets de l'equipe); l'ordinateur d'un utilisateur n'accede jamais
 directement a OpenPROD.
 
 La connexion impose la validation du certificat TLS, un delai maximal de requete de 15 secondes et
@@ -36,8 +37,9 @@ La reponse doit indiquer `status: connected` et `readOnly: true`.
 
 ## Synchronisation vers l'application hebergee
 
-Le backend Vercel ne peut pas joindre directement PostgreSQL, car seule l'adresse IP G5
-`102.50.250.180` est autorisee. Le script suivant doit donc etre execute depuis cette connexion :
+Le backend Vercel ne peut pas joindre directement PostgreSQL, car seule l'adresse IP publique de la
+machine G5 est autorisee par Kazacube (voir le gestionnaire de secrets de l'equipe). Le script suivant
+doit donc etre execute depuis cette connexion :
 
 ```text
 npm --prefix backend run sync-erp
@@ -56,8 +58,8 @@ Le compte a uniquement le droit de lecture sur :
 - `account_voucher` ;
 - `account_voucher_line`.
 
-Il peut se connecter aux bases `GADIMAT_PROD_02` et `GADIMAT_TEST_06_07_2026`. La production est
-la source configuree par defaut dans l'application.
+Il peut se connecter a la base de production et a une base de test dediees (noms fournis par
+Kazacube). La production est la source configuree par defaut dans l'application.
 
 ## Etape suivante
 

@@ -14,16 +14,16 @@ export const ERP_ALLOWED_TABLES = Object.freeze([
   'account_voucher_line',
 ]);
 
-const requiredVariables = ['ERP_DB_USER', 'ERP_DB_PASSWORD'];
+const requiredVariables = ['ERP_DB_HOST', 'ERP_DB_NAME', 'ERP_DB_USER', 'ERP_DB_PASSWORD'];
 
 export function getErpConfigurationStatus() {
   const missing = requiredVariables.filter((name) => !process.env[name]);
   return {
     configured: missing.length === 0,
     missing,
-    host: process.env.ERP_DB_HOST || 'ges.gadimat.com',
+    host: process.env.ERP_DB_HOST || null,
     port: parseInt(process.env.ERP_DB_PORT || '5432', 10),
-    database: process.env.ERP_DB_NAME || 'GADIMAT_PROD_02',
+    database: process.env.ERP_DB_NAME || null,
   };
 }
 
