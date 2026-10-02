@@ -21,7 +21,7 @@ function buildApp() {
 
 beforeEach(() => {
   db.query.mockReset();
-  db.query.mockImplementation(async () => ({ rows: [] }));
+  db.query.mockImplementation(fakeQueryImpl([]));
 });
 
 describe('GET /api/admin/users', () => {
@@ -168,5 +168,59 @@ describe('GET /api/admin/erp/status', () => {
   it('blocks non-admins', async () => {
     const res = await request(buildApp()).get('/api/admin/erp/status').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
+  });
+});
+
+describe('rate limiting on sensitive admin routes', () => {
+  it('returns a clear 429 and logs abuse once user-creation attempts exceed the per-IP limit', async () => {
+    const app = buildApp();
+    let last;
+    for (let i = 0; i < 12; i++) {
+      last = await request(app).post('/api/admin/users').set('Authorization', authHeader(USERS.admin)).send({});
+    }
+    expect(last.status).toBe(429);
+    expect(last.headers['retry-after']).toBeTruthy();
+    expect(last.body.retryAfterSeconds).toBeGreaterThan(0);
+    const log = db.query.mock.calls.find(([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'rate_limited');
+    expect(log).toBeTruthy();
+  });
+
+  it('returns a clear 429 and logs abuse once reset-password attempts exceed the per-IP limit', async () => {
+    const app = buildApp();
+    let last;
+    for (let i = 0; i < 12; i++) {
+      last = await request(app)
+        .post(`/api/admin/users/${USERS.commercialB.id}/reset-password`)
+        .set('Authorization', authHeader(USERS.admin));
+    }
+    expect(last.status).toBe(429);
+    expect(last.headers['retry-after']).toBeTruthy();
+    const log = db.query.mock.calls.find(([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'rate_limited');
+    expect(log).toBeTruthy();
+  });
+});
+
+describe('body validation on reference-data updates', () => {
+  it('rejects an invalid hex colour on PUT /statuts/:id', async () => {
+    const res = await request(buildApp())
+      .put('/api/admin/statuts/1')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ couleur: 'not-a-colour' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an empty nom on PUT /partenaires/:id', async () => {
+    const res = await request(buildApp())
+      .put('/api/admin/partenaires/1')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ nom: '' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a non-UUID utilisateur_id filter on GET /audit-logs', async () => {
+    const res = await request(buildApp())
+      .get('/api/admin/audit-logs?utilisateur_id=not-a-uuid')
+      .set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(400);
   });
 });

@@ -39,7 +39,7 @@ function snapshotRow(overrides = {}) {
 
 beforeEach(() => {
   db.query.mockReset();
-  db.query.mockImplementation(async () => ({ rows: [] }));
+  db.query.mockImplementation(fakeQueryImpl([]));
 });
 
 describe('GET /api/erp/impayes (list)', () => {
@@ -230,5 +230,38 @@ describe('PATCH /api/erp/impayes/:id/reaffecter', () => {
       .set('Authorization', authHeader(USERS.admin))
       .send({ commercial_id: USERS.commercialB.id });
     expect(res.status).toBe(200);
+  });
+
+  it('rejects a non-UUID commercial_id', async () => {
+    const res = await request(buildApp())
+      .patch('/api/erp/impayes/erp-42/reaffecter')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ commercial_id: 'not-a-uuid' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/erp/impayes — query validation', () => {
+  it('rejects a non-numeric montant_min', async () => {
+    const res = await request(buildApp()).get('/api/erp/impayes?montant_min=abc').set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(400);
+  });
+
+  it('applies montant_min=0 as a real filter instead of silently dropping it', async () => {
+    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('SELECT COUNT(*)'), respond: () => [{ count: '0' }] }]));
+    await request(buildApp()).get('/api/erp/impayes?montant_min=0').set('Authorization', authHeader(USERS.admin));
+    const call = db.query.mock.calls.find(([sql]) => sql.includes('SELECT COUNT(*)'));
+    expect(call[0]).toContain('v.montant >=');
+    expect(call[1]).toContain(0);
+  });
+});
+
+describe('PATCH /api/erp/impayes/:id/statut — body validation', () => {
+  it('rejects an empty statut', async () => {
+    const res = await request(buildApp())
+      .patch('/api/erp/impayes/erp-42/statut')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ statut: '' });
+    expect(res.status).toBe(400);
   });
 });

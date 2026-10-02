@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { query } from '../config/db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { ensurePorteurColumn } from '../services/schema.js';
+import { validateQuery, exportQuerySchema } from '../schemas/validation.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -13,8 +14,18 @@ function getPorteur(nomTire, relation) {
   return separatorIndex === -1 ? '' : String(nomTire).slice(separatorIndex + 1).trim();
 }
 
+// Neutralise l'injection de formule Excel/Sheets ("CSV injection") : un champ libre
+// (nom_tire, observations, ...) commençant par =, +, -, @ ou une tabulation serait
+// sinon interprété comme une formule par le tableur à l'ouverture du fichier.
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+function sanitizeCell(value) {
+  if (value === null || value === undefined) return value;
+  const str = String(value);
+  return FORMULA_TRIGGER.test(str) ? `'${str}` : str;
+}
+
 // GET /api/export/excel
-router.get('/excel', async (req, res) => {
+router.get('/excel', validateQuery(exportQuerySchema), async (req, res) => {
   try {
     await ensurePorteurColumn();
     const conditions = [];
@@ -24,13 +35,10 @@ router.get('/excel', async (req, res) => {
       conditions.push(`d.commercial_id = $${idx}`); params.push(req.user.id); idx++;
     }
 
-
-    const { banque, statut, relation, type_valeur, date_debut, date_fin } = req.query;
+    const { banque, statut, relation, type_valeur, date_debut, date_fin } = req.validatedQuery;
     if (banque) { conditions.push(`d.banque = $${idx}`); params.push(banque); idx++; }
     if (statut) { conditions.push(`d.statut = $${idx}`); params.push(statut); idx++; }
-    if (relation && ['CD', 'CDC'].includes(String(relation).toUpperCase())) {
-      conditions.push(`d.relation = $${idx}`); params.push(String(relation).toUpperCase()); idx++;
-    }
+    if (relation) { conditions.push(`d.relation = $${idx}`); params.push(relation); idx++; }
     if (type_valeur) { conditions.push(`d.type_valeur = $${idx}`); params.push(type_valeur); idx++; }
     if (date_debut) { conditions.push(`d.date_saisie >= $${idx}`); params.push(date_debut); idx++; }
     if (date_fin) { conditions.push(`d.date_saisie <= $${idx}`); params.push(date_fin); idx++; }
@@ -50,16 +58,16 @@ router.get('/excel', async (req, res) => {
       'Date': r.date_saisie,
       'Date facture': r.date_facture,
       'Échéance': r.date_echeance,
-      'Banque': r.banque,
+      'Banque': sanitizeCell(r.banque),
       'Montant': parseFloat(r.montant),
       'Type': r.type_valeur,
-      'N Valeur': r.numero_valeur,
-      'Partenaire': r.nom_tire,
-      'Porteur': r.porteur || getPorteur(r.nom_tire, r.relation),
+      'N Valeur': sanitizeCell(r.numero_valeur),
+      'Partenaire': sanitizeCell(r.nom_tire),
+      'Porteur': sanitizeCell(r.porteur || getPorteur(r.nom_tire, r.relation)),
       'Relation': r.relation,
-      'Observation': r.observations,
-      'Commercial': r.commercial,
-      'Statut': r.statut,
+      'Observation': sanitizeCell(r.observations),
+      'Commercial': sanitizeCell(r.commercial),
+      'Statut': sanitizeCell(r.statut),
       'Derniere action': r.date_derniere_action,
       'Date creation': r.date_creation,
     }));

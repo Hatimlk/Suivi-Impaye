@@ -43,6 +43,10 @@ async function migrate() {
     await client.query(migration5);
     console.log('Migration 005 terminee: referentiel partenaires cree');
 
+    const migration8 = readFileSync(join(__dirname, '../../migrations/008_audit_logs_abuse_indexes.sql'), 'utf8');
+    await client.query(migration8);
+    console.log('Migration 008 terminee: index de detection d\'abus crees');
+
     // Creer l'admin par defaut (mot de passe fourni obligatoirement via l'environnement)
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@gadimat.com';
     const adminExists = await client.query('SELECT id FROM users WHERE email = $1', [adminEmail]);

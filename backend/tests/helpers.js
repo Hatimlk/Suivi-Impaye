@@ -34,6 +34,9 @@ export function fakeQueryImpl(rules = []) {
         return Array.isArray(out) ? { rows: out } : out;
       }
     }
+    // Any unmatched COUNT(*) query (e.g. the login lockout check, pagination counts)
+    // defaults to zero so a test that isn't about that specific count doesn't crash.
+    if (/COUNT\(\*\)/i.test(sql)) return { rows: [{ count: '0' }] };
     return { rows: [] };
   };
 }

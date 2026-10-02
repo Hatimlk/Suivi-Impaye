@@ -35,7 +35,7 @@ function userRow(user, overrides = {}) {
 
 beforeEach(() => {
   db.query.mockReset();
-  db.query.mockImplementation(async () => ({ rows: [] }));
+  db.query.mockImplementation(fakeQueryImpl([]));
 });
 
 describe('POST /api/auth/login', () => {
@@ -71,6 +71,73 @@ describe('POST /api/auth/login', () => {
     expect(res.body.refreshToken).toBeTruthy();
     expect(res.body.user.id).toBe(USERS.commercialA.id);
     expect(JSON.stringify(res.body)).not.toContain(passwordHash);
+  });
+
+  it('writes an audit_logs row on a failed login (so abuse is visible to an admin)', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([{ match: (sql) => sql.includes('FROM users WHERE email'), respond: () => [userRow(USERS.commercialA)] }])
+    );
+    await request(buildApp())
+      .post('/api/auth/login')
+      .send({ email: USERS.commercialA.email, password: 'wrong-password' });
+    const insert = db.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO audit_logs'));
+    expect(insert).toBeTruthy();
+    expect(insert[0]).toContain('INSERT INTO audit_logs');
+    const details = JSON.parse(insert[1][3]);
+    expect(insert[1][2]).toBe('login_failed');
+    expect(details.email).toBe(USERS.commercialA.email.toLowerCase());
+  });
+});
+
+describe('POST /api/auth/login — per-account lockout', () => {
+  it('blocks login with 429 once the account has too many recent failed attempts, without touching the users table', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([{ match: (sql) => sql.includes("action_type = 'login_failed'"), respond: () => [{ count: '5' }] }])
+    );
+    const res = await request(buildApp())
+      .post('/api/auth/login')
+      .send({ email: USERS.commercialA.email, password: PASSWORD });
+    expect(res.status).toBe(429);
+    expect(res.body.retryAfterSeconds).toBeGreaterThan(0);
+    expect(db.query.mock.calls.some(([sql]) => sql.includes('FROM users WHERE email'))).toBe(false);
+    const blockLog = db.query.mock.calls.find(
+      ([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'login_blocked'
+    );
+    expect(blockLog).toBeTruthy();
+  });
+
+  it('allows login when the account is under the failed-attempt threshold', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes("action_type = 'login_failed'"), respond: () => [{ count: '4' }] },
+        { match: (sql) => sql.includes('FROM users WHERE email'), respond: () => [userRow(USERS.commercialA)] },
+        { match: (sql) => sql.includes('INSERT INTO refresh_tokens'), respond: () => [] },
+      ])
+    );
+    const res = await request(buildApp())
+      .post('/api/auth/login')
+      .send({ email: USERS.commercialA.email, password: PASSWORD });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('POST /api/auth/login — per-IP rate limiting', () => {
+  it('returns a clear 429 with Retry-After once the per-IP limit is exceeded', async () => {
+    db.query.mockImplementation(fakeQueryImpl([]));
+    const app = buildApp();
+    let last;
+    // The limiter allows 20 requests per window per IP; exhaust it then confirm the next is blocked.
+    for (let i = 0; i < 22; i++) {
+      last = await request(app).post('/api/auth/login').send({ email: 'nobody@test.com', password: 'x' });
+    }
+    expect(last.status).toBe(429);
+    expect(last.headers['retry-after']).toBeTruthy();
+    expect(last.body.error).toBeTruthy();
+    expect(last.body.retryAfterSeconds).toBeGreaterThan(0);
+    const rateLimitLog = db.query.mock.calls.find(
+      ([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'rate_limited'
+    );
+    expect(rateLimitLog).toBeTruthy();
   });
 });
 
@@ -139,5 +206,25 @@ describe('POST /api/auth/logout', () => {
     const call = db.query.mock.calls.find(([sql]) => sql.includes('DELETE FROM refresh_tokens'));
     expect(call[0]).toContain('user_id');
     expect(call[1]).toContain(USERS.commercialA.id);
+  });
+
+  it('rejects a non-string refreshToken instead of crashing on it', async () => {
+    const res = await request(buildApp())
+      .post('/api/auth/logout')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .send({ refreshToken: { not: 'a string' } });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/auth/refresh — body validation', () => {
+  it('rejects a missing refreshToken', async () => {
+    const res = await request(buildApp()).post('/api/auth/refresh').send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a non-string refreshToken', async () => {
+    const res = await request(buildApp()).post('/api/auth/refresh').send({ refreshToken: 12345 });
+    expect(res.status).toBe(400);
   });
 });

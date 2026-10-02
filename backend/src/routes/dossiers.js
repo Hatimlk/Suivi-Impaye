@@ -8,13 +8,27 @@ import { sendCommercialActionNotification } from '../services/mailer.js';
 import { ensurePorteurColumn, ensurePartenairesTable } from '../services/schema.js';
 import {
   validate,
+  validateQuery,
   createDossierSchema,
   updateDossierSchema,
   createActionSchema,
+  dossierListQuerySchema,
+  statutBodySchema,
+  reaffecterBodySchema,
 } from '../schemas/validation.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const router = Router();
 router.use(authenticateToken);
+// Toutes les routes :id de ce routeur portent sur un UUID de dossier ; un identifiant
+// mal formé renvoie une 400 claire plutôt qu'une erreur de cast Postgres non gérée.
+router.param('id', (req, res, next, value) => {
+  if (!UUID_REGEX.test(value)) {
+    return res.status(400).json({ error: 'Identifiant de dossier invalide' });
+  }
+  next();
+});
 router.use(async (_req, res, next) => {
   try {
     await ensurePorteurColumn();
@@ -75,27 +89,27 @@ router.get('/calendrier', async (req, res) => {
 });
 
 // GET /api/dossiers - Liste avec filtres, pagination, recherche
-router.get('/', async (req, res) => {
+router.get('/', validateQuery(dossierListQuerySchema), async (req, res) => {
   try {
     const {
-      page = 1,
-      limit = 20,
-      search = '',
-      nom_tire = '',
-      banque = '',
-      statut = '',
-      relation = '',
-      commercial_id = '',
-      type_valeur = '',
-      date_debut = '',
-      date_fin = '',
-      montant_min = '',
-      montant_max = '',
+      page,
+      limit,
+      search,
+      nom_tire,
+      banque,
+      statut,
+      relation,
+      commercial_id,
+      type_valeur,
+      date_debut,
+      date_fin,
+      montant_min,
+      montant_max,
       sort = 'date_saisie',
       order = 'DESC',
-    } = req.query;
+    } = req.validatedQuery;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
     let paramIndex = 1;
@@ -131,9 +145,9 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
 
-    if (relation && ['CD', 'CDC'].includes(String(relation).toUpperCase())) {
+    if (relation) {
       conditions.push(`d.relation = $${paramIndex}`);
-      params.push(String(relation).toUpperCase());
+      params.push(relation);
       paramIndex++;
     }
 
@@ -161,15 +175,15 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
 
-    if (montant_min) {
+    if (montant_min !== undefined) {
       conditions.push(`d.montant >= $${paramIndex}`);
-      params.push(parseFloat(montant_min));
+      params.push(montant_min);
       paramIndex++;
     }
 
-    if (montant_max) {
+    if (montant_max !== undefined) {
       conditions.push(`d.montant <= $${paramIndex}`);
-      params.push(parseFloat(montant_max));
+      params.push(montant_max);
       paramIndex++;
     }
 
@@ -192,15 +206,15 @@ router.get('/', async (req, res) => {
        ${whereClause}
        ORDER BY d.${sortField} ${sortOrder}
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
-      [...params, parseInt(limit), offset]
+      [...params, limit, offset]
     );
 
     res.json({
       dossiers: dossiersResult.rows,
       total: parseInt(countResult.rows[0].count),
-      page: parseInt(page),
-      limit: parseInt(limit),
-      totalPages: Math.ceil(parseInt(countResult.rows[0].count) / parseInt(limit)),
+      page,
+      limit,
+      totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit),
     });
   } catch (err) {
     console.error('Erreur liste dossiers:', err);
@@ -435,20 +449,35 @@ router.get('/stats', async (req, res) => {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
-    const allowed = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      'text/csv',
-    ];
-    if (allowed.includes(file.mimetype) || file.originalname.match(/\.(xlsx?|csv)$/i)) {
+    // Le mimetype est fourni par le client et trivialement falsifiable : l'extension est la
+    // seule verification fiable a ce stade. Le contenu reel est verifie dans le handler via
+    // les nombres magiques du fichier une fois le buffer disponible.
+    if (/\.(xlsx|xls|csv)$/i.test(file.originalname || '')) {
       cb(null, true);
     } else {
       cb(new Error('Fichier Excel (.xlsx, .xls) ou CSV accepte uniquement'));
     }
   },
 });
+
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // .xlsx (format ZIP/OOXML)
+const OLE2_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0]); // .xls (format OLE2/CFB)
+
+function detectSpreadsheetMismatch(buffer, originalname) {
+  const ext = (String(originalname || '').match(/\.(xlsx|xls|csv)$/i) || [])[1]?.toLowerCase();
+  if (!ext) return 'Fichier Excel (.xlsx, .xls) ou CSV accepte uniquement';
+  if (!buffer || buffer.length === 0) return 'Le fichier est vide';
+
+  const startsWithZip = buffer.subarray(0, 4).equals(ZIP_MAGIC);
+  const startsWithOle2 = buffer.subarray(0, 4).equals(OLE2_MAGIC);
+
+  if (ext === 'xlsx' && !startsWithZip) return "Le fichier .xlsx est corrompu ou n'est pas un fichier Excel valide";
+  if (ext === 'xls' && !startsWithOle2) return "Le fichier .xls est corrompu ou n'est pas un fichier Excel valide";
+  if (ext === 'csv' && (startsWithZip || startsWithOle2)) return 'Le fichier .csv ne contient pas du texte brut';
+  return null;
+}
 
 const COLUMN_MAP = {
   'Date': 'date_saisie', 'date': 'date_saisie',
@@ -487,7 +516,17 @@ router.post('/import', requireRole('admin', 'responsable_recouvrement'), upload.
       return res.status(400).json({ error: 'Aucun fichier fourni' });
     }
 
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const mismatch = detectSpreadsheetMismatch(req.file.buffer, req.file.originalname);
+    if (mismatch) {
+      return res.status(400).json({ error: mismatch });
+    }
+
+    let wb;
+    try {
+      wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    } catch {
+      return res.status(400).json({ error: 'Impossible de lire le fichier : format invalide ou corrompu' });
+    }
     const sheetName = wb.SheetNames[0];
     const sheet = wb.Sheets[sheetName];
     const rawData = XLSX.utils.sheet_to_json(sheet);
@@ -764,12 +803,9 @@ router.put('/:id', validate(updateDossierSchema), async (req, res) => {
 });
 
 // PATCH /api/dossiers/:id/statut
-router.patch('/:id/statut', async (req, res) => {
+router.patch('/:id/statut', validate(statutBodySchema), async (req, res) => {
   try {
-    const { statut } = req.body;
-    if (!statut) {
-      return res.status(400).json({ error: 'Statut requis' });
-    }
+    const { statut } = req.validated;
 
     const existing = await query('SELECT * FROM dossiers WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {
@@ -805,12 +841,9 @@ router.patch('/:id/statut', async (req, res) => {
 });
 
 // PATCH /api/dossiers/:id/reaffecter
-router.patch('/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), async (req, res) => {
+router.patch('/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), validate(reaffecterBodySchema), async (req, res) => {
   try {
-    const { commercial_id } = req.body;
-    if (!commercial_id) {
-      return res.status(400).json({ error: 'Commercial destinataire requis' });
-    }
+    const { commercial_id } = req.validated;
 
     const existing = await query('SELECT * FROM dossiers WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {

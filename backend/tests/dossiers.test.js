@@ -13,6 +13,12 @@ function buildApp() {
   const app = express();
   app.use(express.json());
   app.use('/api/dossiers', dossiersRouter);
+  // Reproduit le gestionnaire d'erreurs de server.js (multer rejette via cb(err), pas via throw).
+  app.use((err, _req, res, _next) => {
+    if (err?.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'Fichier trop volumineux (max 10 Mo)' });
+    if (err?.message?.includes('Fichier Excel')) return res.status(400).json({ error: err.message });
+    res.status(500).json({ error: 'Erreur serveur interne' });
+  });
   return app;
 }
 
@@ -31,7 +37,7 @@ function dossierRow(overrides = {}) {
 
 beforeEach(() => {
   db.query.mockReset();
-  db.query.mockImplementation(async () => ({ rows: [] }));
+  db.query.mockImplementation(fakeQueryImpl([]));
 });
 
 describe('GET /api/dossiers (list)', () => {
@@ -56,7 +62,7 @@ describe('GET /api/dossiers/:id', () => {
     db.query.mockImplementation(
       fakeQueryImpl([{ match: (sql) => sql.includes('FROM dossiers d'), respond: () => [dossierRow({ commercial_id: USERS.commercialB.id })] }])
     );
-    const res = await request(buildApp()).get('/api/dossiers/d1').set('Authorization', authHeader(USERS.commercialA));
+    const res = await request(buildApp()).get('/api/dossiers/d0000000-0000-0000-0000-000000000001').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
   });
 
@@ -64,7 +70,7 @@ describe('GET /api/dossiers/:id', () => {
     db.query.mockImplementation(
       fakeQueryImpl([{ match: (sql) => sql.includes('FROM dossiers d'), respond: () => [dossierRow({ commercial_id: USERS.commercialA.id })] }])
     );
-    const res = await request(buildApp()).get('/api/dossiers/d1').set('Authorization', authHeader(USERS.commercialA));
+    const res = await request(buildApp()).get('/api/dossiers/d0000000-0000-0000-0000-000000000001').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(200);
   });
 
@@ -72,7 +78,7 @@ describe('GET /api/dossiers/:id', () => {
     db.query.mockImplementation(
       fakeQueryImpl([{ match: (sql) => sql.includes('FROM dossiers d'), respond: () => [dossierRow({ commercial_id: USERS.commercialB.id })] }])
     );
-    const res = await request(buildApp()).get('/api/dossiers/d1').set('Authorization', authHeader(USERS.admin));
+    const res = await request(buildApp()).get('/api/dossiers/d0000000-0000-0000-0000-000000000001').set('Authorization', authHeader(USERS.admin));
     expect(res.status).toBe(200);
   });
 });
@@ -119,7 +125,7 @@ describe('PUT /api/dossiers/:id (update)', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow({ commercial_id: USERS.commercialB.id })] }])
     );
     const res = await request(buildApp())
-      .put('/api/dossiers/d1')
+      .put('/api/dossiers/d0000000-0000-0000-0000-000000000001')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ observations: 'x' });
     expect(res.status).toBe(403);
@@ -130,7 +136,7 @@ describe('PUT /api/dossiers/:id (update)', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow()] }])
     );
     const res = await request(buildApp())
-      .put('/api/dossiers/d1')
+      .put('/api/dossiers/d0000000-0000-0000-0000-000000000001')
       .set('Authorization', authHeader(USERS.lecture))
       .send({ observations: 'x' });
     expect(res.status).toBe(403);
@@ -144,7 +150,7 @@ describe('PUT /api/dossiers/:id (update)', () => {
       ])
     );
     const res = await request(buildApp())
-      .put('/api/dossiers/d1')
+      .put('/api/dossiers/d0000000-0000-0000-0000-000000000001')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ observations: 'updated', commercial_id: USERS.commercialB.id });
     expect(res.status).toBe(200);
@@ -161,7 +167,7 @@ describe('PUT /api/dossiers/:id (update)', () => {
       ])
     );
     const res = await request(buildApp())
-      .put('/api/dossiers/d1')
+      .put('/api/dossiers/d0000000-0000-0000-0000-000000000001')
       .set('Authorization', authHeader(USERS.admin))
       .send({ commercial_id: USERS.commercialB.id });
     expect(res.status).toBe(200);
@@ -176,7 +182,7 @@ describe('PATCH /api/dossiers/:id/statut', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow({ commercial_id: USERS.commercialB.id })] }])
     );
     const res = await request(buildApp())
-      .patch('/api/dossiers/d1/statut')
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/statut')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ statut: 'Régularisé - OK' });
     expect(res.status).toBe(403);
@@ -187,7 +193,7 @@ describe('PATCH /api/dossiers/:id/statut', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow()] }])
     );
     const res = await request(buildApp())
-      .patch('/api/dossiers/d1/statut')
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/statut')
       .set('Authorization', authHeader(USERS.lecture))
       .send({ statut: 'Régularisé - OK' });
     expect(res.status).toBe(403);
@@ -197,7 +203,7 @@ describe('PATCH /api/dossiers/:id/statut', () => {
 describe('PATCH /api/dossiers/:id/reaffecter', () => {
   it('blocks a commercial from reassigning dossiers', async () => {
     const res = await request(buildApp())
-      .patch('/api/dossiers/d1/reaffecter')
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/reaffecter')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ commercial_id: USERS.commercialB.id });
     expect(res.status).toBe(403);
@@ -212,7 +218,7 @@ describe('PATCH /api/dossiers/:id/reaffecter', () => {
       ])
     );
     const res = await request(buildApp())
-      .patch('/api/dossiers/d1/reaffecter')
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/reaffecter')
       .set('Authorization', authHeader(USERS.responsable))
       .send({ commercial_id: USERS.commercialB.id });
     expect(res.status).toBe(200);
@@ -225,7 +231,7 @@ describe('POST /api/dossiers/:id/actions', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow({ commercial_id: USERS.commercialB.id })] }])
     );
     const res = await request(buildApp())
-      .post('/api/dossiers/d1/actions')
+      .post('/api/dossiers/d0000000-0000-0000-0000-000000000001/actions')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ contenu: 'hello' });
     expect(res.status).toBe(403);
@@ -236,7 +242,7 @@ describe('POST /api/dossiers/:id/actions', () => {
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow()] }])
     );
     const res = await request(buildApp())
-      .post('/api/dossiers/d1/actions')
+      .post('/api/dossiers/d0000000-0000-0000-0000-000000000001/actions')
       .set('Authorization', authHeader(USERS.lecture))
       .send({ contenu: 'hello' });
     expect(res.status).toBe(403);
@@ -245,7 +251,7 @@ describe('POST /api/dossiers/:id/actions', () => {
 
 describe('DELETE /api/dossiers/:id', () => {
   it('blocks a commercial from deleting even their own dossier', async () => {
-    const res = await request(buildApp()).delete('/api/dossiers/d1').set('Authorization', authHeader(USERS.commercialA));
+    const res = await request(buildApp()).delete('/api/dossiers/d0000000-0000-0000-0000-000000000001').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
   });
 
@@ -253,7 +259,7 @@ describe('DELETE /api/dossiers/:id', () => {
     db.query.mockImplementation(
       fakeQueryImpl([{ match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow()] }])
     );
-    const res = await request(buildApp()).delete('/api/dossiers/d1').set('Authorization', authHeader(USERS.admin));
+    const res = await request(buildApp()).delete('/api/dossiers/d0000000-0000-0000-0000-000000000001').set('Authorization', authHeader(USERS.admin));
     expect(res.status).toBe(200);
   });
 });
@@ -264,5 +270,77 @@ describe('POST /api/dossiers/import', () => {
       .post('/api/dossiers/import')
       .set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
+  });
+
+  it('rejects a file with the wrong extension', async () => {
+    const res = await request(buildApp())
+      .post('/api/dossiers/import')
+      .set('Authorization', authHeader(USERS.admin))
+      .attach('file', Buffer.from('not a spreadsheet'), 'malware.exe');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a .xlsx file whose content is not actually a zip (spoofed extension)', async () => {
+    const res = await request(buildApp())
+      .post('/api/dossiers/import')
+      .set('Authorization', authHeader(USERS.admin))
+      .attach('file', Buffer.from('plain text pretending to be excel'), 'fake.xlsx');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/xlsx/i);
+  });
+
+  it('rejects an empty file', async () => {
+    const res = await request(buildApp())
+      .post('/api/dossiers/import')
+      .set('Authorization', authHeader(USERS.admin))
+      .attach('file', Buffer.alloc(0), 'empty.csv');
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('malformed route params', () => {
+  it('returns 400 (not 500) for a non-UUID dossier id', async () => {
+    const res = await request(buildApp()).get('/api/dossiers/not-a-uuid').set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('GET /api/dossiers — query validation', () => {
+  it('rejects a non-numeric montant_min', async () => {
+    const res = await request(buildApp()).get('/api/dossiers?montant_min=abc').set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a malformed date_debut', async () => {
+    const res = await request(buildApp()).get('/api/dossiers?date_debut=2026/01/01').set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(400);
+  });
+
+  it('applies montant_min=0 as a real filter instead of silently dropping it', async () => {
+    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('SELECT COUNT(*)'), respond: () => [{ count: '0' }] }]));
+    await request(buildApp()).get('/api/dossiers?montant_min=0').set('Authorization', authHeader(USERS.admin));
+    const call = db.query.mock.calls.find(([sql]) => sql.includes('SELECT COUNT(*)'));
+    expect(call[0]).toContain('d.montant >=');
+    expect(call[1]).toContain(0);
+  });
+});
+
+describe('PATCH /api/dossiers/:id/statut — body validation', () => {
+  it('rejects an empty statut', async () => {
+    const res = await request(buildApp())
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/statut')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ statut: '' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /api/dossiers/:id/reaffecter — body validation', () => {
+  it('rejects a non-UUID commercial_id', async () => {
+    const res = await request(buildApp())
+      .patch('/api/dossiers/d0000000-0000-0000-0000-000000000001/reaffecter')
+      .set('Authorization', authHeader(USERS.admin))
+      .send({ commercial_id: 'not-a-uuid' });
+    expect(res.status).toBe(400);
   });
 });

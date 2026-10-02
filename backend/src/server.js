@@ -1,7 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 import config from './config/env.js';
@@ -12,31 +11,30 @@ import exportRoutes from './routes/export.js';
 import erpRoutes from './routes/erp.js';
 import erpSyncRoutes from './routes/erpSync.js';
 import { query } from './config/db.js';
+import { ipRateLimiter } from './middleware/rateLimiter.js';
 
 dotenv.config();
 
 const app = express();
+
+// Nécessaire derrière le proxy Vercel pour que req.ip (utilisé par le rate limiting)
+// reflète la vraie IP cliente plutôt que celle du proxy.
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
-// Rate limiting
-const limiter = rateLimit({
+// Rate limiting global (toutes les routes API). Les routes sensibles (login, reset de mot
+// de passe, creation d'utilisateur, webhook ERP) ont leurs propres limites, plus strictes,
+// definies directement sur leur routeur.
+app.use('/api/', ipRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  message: { error: 'Trop de requetes, veuillez reessayer plus tard' },
-});
-app.use('/api/', limiter);
-
-// Login rate limit
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: { error: 'Trop de tentatives de connexion' },
-});
-app.use('/api/auth/login', loginLimiter);
+  name: 'global_api',
+  message: 'Trop de requetes, veuillez reessayer plus tard',
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);

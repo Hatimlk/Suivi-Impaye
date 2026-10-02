@@ -4,19 +4,39 @@ import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { logAudit } from '../middleware/audit.js';
+import { ipRateLimiter } from '../middleware/rateLimiter.js';
 import { ensurePartenairesTable } from '../services/schema.js';
 import { checkErpConnection, getErpConfigurationStatus } from '../config/erpDb.js';
 import {
   validate,
+  validateQuery,
   createUserSchema,
   updateUserSchema,
   createBanqueSchema,
   createStatutSchema,
+  updateStatutRefSchema,
   createRelationSchema,
+  auditLogQuerySchema,
 } from '../schemas/validation.js';
 
 const router = Router();
 router.use(authenticateToken);
+
+// Création de compte ("signup" admin) et réinitialisation de mot de passe sont des cibles
+// de choix pour un abus (admin compromis / script en boucle) : on les limite en plus du rôle requis.
+const createUserLimiter = ipRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  name: 'admin_create_user',
+  message: 'Trop de créations de compte depuis cette adresse, veuillez réessayer plus tard',
+});
+
+const resetPasswordLimiter = ipRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  name: 'admin_reset_password',
+  message: 'Trop de réinitialisations de mot de passe depuis cette adresse, veuillez réessayer plus tard',
+});
 
 function generateRandomPassword(length = 14) {
   const categories = [
@@ -94,12 +114,10 @@ router.post('/partenaires', requireRole('admin'), validate(createBanqueSchema), 
   }
 });
 
-router.put('/partenaires/:id', requireRole('admin'), async (req, res) => {
+router.put('/partenaires/:id', requireRole('admin'), validate(createBanqueSchema), async (req, res) => {
   try {
     await ensurePartenairesTable();
-    const nom = String(req.body.nom || '').trim();
-    if (!nom) return res.status(400).json({ error: 'Nom requis' });
-    const result = await query('UPDATE partenaires_reference SET nom = $1 WHERE id = $2 RETURNING *', [nom, req.params.id]);
+    const result = await query('UPDATE partenaires_reference SET nom = $1 WHERE id = $2 RETURNING *', [req.validated.nom.trim(), req.params.id]);
     if (!result.rows[0]) return res.status(404).json({ error: 'Partenaire introuvable' });
     res.json(result.rows[0]);
   } catch (err) {
@@ -132,7 +150,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-router.post('/users', requireRole('admin'), validate(createUserSchema), async (req, res) => {
+router.post('/users', createUserLimiter, requireRole('admin'), validate(createUserSchema), async (req, res) => {
   try {
     const { nom, email, mot_de_passe, role, actif } = req.validated;
     const exists = await query('SELECT id FROM users WHERE email = $1', [email]);
@@ -189,7 +207,7 @@ router.put('/users/:id', requireRole('admin'), validate(updateUserSchema), async
   }
 });
 
-router.post('/users/:id/reset-password', requireRole('admin'), async (req, res) => {
+router.post('/users/:id/reset-password', resetPasswordLimiter, requireRole('admin'), async (req, res) => {
   try {
     const existing = await query('SELECT id, email FROM users WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {
@@ -284,9 +302,9 @@ router.post('/statuts', requireRole('admin'), validate(createStatutSchema), asyn
   }
 });
 
-router.put('/statuts/:id', requireRole('admin'), async (req, res) => {
+router.put('/statuts/:id', requireRole('admin'), validate(updateStatutRefSchema), async (req, res) => {
   try {
-    const { libelle, ordre, couleur, actif } = req.body;
+    const { libelle, ordre, couleur, actif } = req.validated;
     const result = await query(
       `UPDATE statuts_reference SET
         libelle = COALESCE($1, libelle), ordre = COALESCE($2, ordre),
@@ -345,10 +363,10 @@ router.delete('/relations/:id', requireRole('admin'), async (req, res) => {
 
 // ====================== AUDIT LOGS ======================
 
-router.get('/audit-logs', requireRole('admin'), async (req, res) => {
+router.get('/audit-logs', requireRole('admin'), validateQuery(auditLogQuerySchema), async (req, res) => {
   try {
-    const { page = 1, limit = 50, utilisateur_id, dossier_id, action_type, date_debut, date_fin } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, utilisateur_id, dossier_id, action_type, date_debut, date_fin } = req.validatedQuery;
+    const offset = (page - 1) * limit;
     const conditions = [];
     const params = [];
     let idx = 1;

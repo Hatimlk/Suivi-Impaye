@@ -68,4 +68,53 @@ describe('POST /api/erp-sync', () => {
       .send({ impayes });
     expect(res.status).toBe(413);
   });
+
+  it('logs every invalid-secret attempt so repeated abuse is visible to an admin', async () => {
+    await request(buildApp()).post('/api/erp-sync').set('Authorization', 'Bearer wrong-secret').send({ impayes: [] });
+    const log = db.query.mock.calls.find(([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'erp_sync_unauthorized');
+    expect(log).toBeTruthy();
+  });
+
+  it('rejects a row with the wrong field types instead of trusting the source', async () => {
+    const res = await request(buildApp())
+      .post('/api/erp-sync')
+      .set('Authorization', 'Bearer correct-shared-secret')
+      .send({ impayes: [{ erp_voucher_id: 'not-a-number', montant: 'also not a number', type_valeur: 'CHQ', numero_valeur: 'V-1', nom_tire: 'Client' }] });
+    expect(res.status).toBe(400);
+    expect(res.body.details).toBeTruthy();
+  });
+
+  it('rejects a row missing required fields', async () => {
+    const res = await request(buildApp())
+      .post('/api/erp-sync')
+      .set('Authorization', 'Bearer correct-shared-secret')
+      .send({ impayes: [{ erp_voucher_id: 1 }] });
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts a well-formed row', async () => {
+    const res = await request(buildApp())
+      .post('/api/erp-sync')
+      .set('Authorization', 'Bearer correct-shared-secret')
+      .send({
+        impayes: [
+          { erp_voucher_id: 1, montant: 100.5, type_valeur: 'CHQ', numero_valeur: 'V-1', nom_tire: 'Client X', date_saisie: '2026-01-01' },
+        ],
+      });
+    expect(res.status).toBe(200);
+  });
+
+  // Doit rester le dernier test : il epuise volontairement le limiteur par IP partage au
+  // niveau du module pour le reste de ce fichier de test.
+  it('returns a clear 429 once the per-IP limit is exceeded, regardless of secret validity', async () => {
+    const app = buildApp();
+    let last;
+    for (let i = 0; i < 22; i++) {
+      last = await request(app).post('/api/erp-sync').set('Authorization', 'Bearer wrong-secret').send({ impayes: [] });
+    }
+    expect(last.status).toBe(429);
+    expect(last.headers['retry-after']).toBeTruthy();
+    const log = db.query.mock.calls.find(([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'rate_limited');
+    expect(log).toBeTruthy();
+  });
 });

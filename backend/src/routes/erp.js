@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
 import { query } from '../config/db.js';
 import { ensureErpTrackingTables } from '../services/schema.js';
-import { validate, createActionSchema } from '../schemas/validation.js';
+import { validate, validateQuery, createActionSchema, erpImpayesQuerySchema, statutBodySchema, reaffecterBodySchema } from '../schemas/validation.js';
 import { logAudit } from '../middleware/audit.js';
 
 const router = Router();
@@ -70,21 +70,20 @@ function buildFilters(requestQuery, user) {
   if (requestQuery.type_valeur) add('v.type_valeur = ?', requestQuery.type_valeur);
   if (requestQuery.date_debut) add('v.date_saisie >= ?', requestQuery.date_debut);
   if (requestQuery.date_fin) add('v.date_saisie <= ?', requestQuery.date_fin);
-  if (requestQuery.montant_min) add('v.montant >= ?', Number(requestQuery.montant_min));
-  if (requestQuery.montant_max) add('v.montant <= ?', Number(requestQuery.montant_max));
+  if (requestQuery.montant_min !== undefined) add('v.montant >= ?', requestQuery.montant_min);
+  if (requestQuery.montant_max !== undefined) add('v.montant <= ?', requestQuery.montant_max);
   if (requestQuery.statut) add(`COALESCE(s.statut, 'Attente retour du client') = ?`, requestQuery.statut);
   return { where: `WHERE ${conditions.join(' AND ')}`, params };
 }
 
-router.get('/impayes', async (req, res) => {
+router.get('/impayes', validateQuery(erpImpayesQuerySchema), async (req, res) => {
   try {
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const { page, limit } = req.validatedQuery;
     const offset = (page - 1) * limit;
-    const { where, params } = buildFilters(req.query, req.user);
+    const { where, params } = buildFilters(req.validatedQuery, req.user);
     const sortMap = { date_saisie: 'v.date_saisie', date_facture: 'v.date_facture', date_echeance: 'v.date_echeance', montant: 'v.montant', nom_tire: 'v.nom_tire', type_valeur: 'v.type_valeur' };
-    const sort = sortMap[req.query.sort] || 'v.date_saisie';
-    const order = String(req.query.order).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const sort = sortMap[req.validatedQuery.sort] || 'v.date_saisie';
+    const order = String(req.validatedQuery.order).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const [count, rows] = await Promise.all([
       query(`SELECT COUNT(*)::int AS count FROM erp_impayes_snapshot v LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id ${where}`, params),
       query(`${selectDossier} ${where} ORDER BY ${sort} ${order} NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, offset]),
@@ -151,13 +150,14 @@ async function assertErpOwnership(req, res, id) {
   return true;
 }
 
-router.patch('/impayes/:id/statut', async (req, res) => {
+router.patch('/impayes/:id/statut', validate(statutBodySchema), async (req, res) => {
   const id = parseErpId(req.params.id);
-  if (!id || !req.body.statut) return res.status(400).json({ error: 'Identifiant et statut requis' });
+  if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
   if (req.user.role === 'lecture_seule') return res.status(403).json({ error: 'Lecture seule' });
   if (!(await assertErpOwnership(req, res, id))) return;
-  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, statut) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET statut = EXCLUDED.statut, date_derniere_modification = NOW() RETURNING *`, [id, req.body.statut]);
-  await logAudit(req.user.id, null, 'erp_statut', { erp_voucher_id: id, statut: req.body.statut });
+  const { statut } = req.validated;
+  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, statut) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET statut = EXCLUDED.statut, date_derniere_modification = NOW() RETURNING *`, [id, statut]);
+  await logAudit(req.user.id, null, 'erp_statut', { erp_voucher_id: id, statut });
   res.json(result.rows[0]);
 });
 
@@ -174,11 +174,13 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   res.status(201).json(action.rows[0]);
 });
 
-router.patch('/impayes/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), async (req, res) => {
+router.patch('/impayes/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), validate(reaffecterBodySchema), async (req, res) => {
   const id = parseErpId(req.params.id);
-  const user = await query(`SELECT id FROM users WHERE id = $1 AND actif = true AND role = 'commercial'`, [req.body.commercial_id]);
-  if (!id || !user.rows[0]) return res.status(400).json({ error: 'Dossier ou commercial invalide' });
-  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, commercial_id) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET commercial_id = EXCLUDED.commercial_id, date_derniere_modification = NOW() RETURNING *`, [id, req.body.commercial_id]);
+  if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
+  const { commercial_id } = req.validated;
+  const user = await query(`SELECT id FROM users WHERE id = $1 AND actif = true AND role = 'commercial'`, [commercial_id]);
+  if (!user.rows[0]) return res.status(400).json({ error: 'Commercial destinataire introuvable ou inactif' });
+  const result = await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id, commercial_id) VALUES ($1, $2) ON CONFLICT (erp_voucher_id) DO UPDATE SET commercial_id = EXCLUDED.commercial_id, date_derniere_modification = NOW() RETURNING *`, [id, commercial_id]);
   res.json(result.rows[0]);
 });
 

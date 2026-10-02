@@ -1,9 +1,24 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { timingSafeEqual } from 'crypto';
 import { getClient } from '../config/db.js';
 import { ensureErpTrackingTables } from '../services/schema.js';
+import { logAudit } from '../middleware/audit.js';
+import { ipRateLimiter, clientIp } from '../middleware/rateLimiter.js';
+import { erpSyncItemSchema } from '../schemas/validation.js';
+
+const impayesListSchema = z.array(erpSyncItemSchema);
 
 const router = Router();
+
+// Webhook machine-à-machine protégé par secret partagé : limite stricte par IP et on journalise
+// chaque tentative avec un secret invalide (signal d'abus même sous le seuil de la limite).
+const syncLimiter = ipRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  name: 'erp_sync',
+  message: 'Trop de tentatives de synchronisation depuis cette adresse, veuillez réessayer plus tard',
+});
 
 function validSecret(received) {
   const expected = process.env.ERP_SYNC_SECRET || '';
@@ -13,17 +28,29 @@ function validSecret(received) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
-router.post('/', async (req, res) => {
+router.post('/', syncLimiter, async (req, res) => {
   const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (!validSecret(token)) return res.status(401).json({ error: 'Cle de synchronisation invalide' });
+  if (!validSecret(token)) {
+    await logAudit(null, null, 'erp_sync_unauthorized', { ip: clientIp(req) });
+    return res.status(401).json({ error: 'Cle de synchronisation invalide' });
+  }
   if (!Array.isArray(req.body?.impayes)) return res.status(400).json({ error: 'Liste impayes requise' });
   if (req.body.impayes.length > 10000) return res.status(413).json({ error: 'Trop de lignes' });
+
+  const parsed = impayesListSchema.safeParse(req.body.impayes);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Donnees impayes invalides',
+      details: parsed.error.errors.slice(0, 20).map((e) => ({ field: e.path.join('.'), message: e.message })),
+    });
+  }
+  const impayes = parsed.data;
 
   await ensureErpTrackingTables();
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const run = await client.query(`INSERT INTO erp_sync_runs (received_count) VALUES ($1) RETURNING id`, [req.body.impayes.length]);
+    const run = await client.query(`INSERT INTO erp_sync_runs (received_count) VALUES ($1) RETURNING id`, [impayes.length]);
     await client.query(
       `INSERT INTO erp_impayes_snapshot (
          erp_voucher_id, date_saisie, date_facture, date_echeance, montant, type_valeur,
@@ -49,9 +76,9 @@ router.post('/', async (req, res) => {
          erp_partner_id = EXCLUDED.erp_partner_id,
          erp_commercial_nom = EXCLUDED.erp_commercial_nom,
          actif = true, synced_at = NOW()`,
-      [JSON.stringify(req.body.impayes)]
+      [JSON.stringify(impayes)]
     );
-    const ids = req.body.impayes.map((row) => Number(row.erp_voucher_id)).filter(Number.isInteger);
+    const ids = impayes.map((row) => row.erp_voucher_id);
     await client.query(`UPDATE erp_impayes_snapshot SET actif = false, synced_at = NOW() WHERE actif = true AND NOT (erp_voucher_id = ANY($1::int[]))`, [ids]);
     await client.query(`UPDATE erp_sync_runs SET status = 'success', completed_at = NOW() WHERE id = $1`, [run.rows[0].id]);
     await client.query('COMMIT');

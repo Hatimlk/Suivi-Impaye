@@ -4,10 +4,19 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import config from '../config/env.js';
-import { validate, loginSchema } from '../schemas/validation.js';
+import { validate, loginSchema, refreshTokenBodySchema, logoutBodySchema } from '../schemas/validation.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { logAudit } from '../middleware/audit.js';
+import { ipRateLimiter, clientIp, isAccountLocked, FAILED_LOGIN_WINDOW_MINUTES, FAILED_LOGIN_MAX_ATTEMPTS } from '../middleware/rateLimiter.js';
 
 const router = Router();
+
+const loginIpLimiter = ipRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  name: 'login_ip',
+  message: 'Trop de tentatives de connexion depuis cette adresse, veuillez réessayer plus tard',
+});
 
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -25,18 +34,29 @@ async function issueRefreshToken(userId) {
 }
 
 // POST /api/auth/login
-router.post('/login', validate(loginSchema), async (req, res) => {
+router.post('/login', loginIpLimiter, validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.validated;
+    const ip = clientIp(req);
+
+    if (await isAccountLocked(query, email)) {
+      await logAudit(null, null, 'login_blocked', { email, ip });
+      return res.status(429).json({
+        error: `Trop de tentatives échouées (max ${FAILED_LOGIN_MAX_ATTEMPTS}) pour ce compte. Réessayez dans ${FAILED_LOGIN_WINDOW_MINUTES} minutes.`,
+        retryAfterSeconds: FAILED_LOGIN_WINDOW_MINUTES * 60,
+      });
+    }
 
     const result = await query('SELECT * FROM users WHERE email = $1 AND actif = true', [email]);
     if (result.rows.length === 0) {
+      await logAudit(null, null, 'login_failed', { email, ip, reason: 'unknown_email_or_inactive' });
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
     const user = result.rows[0];
     const validPassword = await bcrypt.compare(password, user.mot_de_passe_hash);
     if (!validPassword) {
+      await logAudit(user.id, null, 'login_failed', { email, ip, reason: 'wrong_password' });
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
@@ -67,13 +87,9 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 });
 
 // POST /api/auth/refresh
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', validate(refreshTokenBodySchema), async (req, res) => {
   try {
-    const { refreshToken } = req.body;
-    if (!refreshToken) {
-      return res.status(401).json({ error: 'Refresh token requis' });
-    }
-
+    const { refreshToken } = req.validated;
     const tokenHash = hashToken(refreshToken);
     const result = await query(
       'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
@@ -111,9 +127,9 @@ router.post('/refresh', async (req, res) => {
 });
 
 // POST /api/auth/logout
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', authenticateToken, validate(logoutBodySchema), async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const { refreshToken } = req.validated;
     if (refreshToken) {
       // Scope la suppression au propriétaire du token pour éviter qu'un utilisateur
       // ne révoque la session d'un autre s'il venait à connaître son refresh token.
