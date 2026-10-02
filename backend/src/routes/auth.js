@@ -115,7 +115,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (refreshToken) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [hashToken(refreshToken)]);
+      // Scope la suppression au propriétaire du token pour éviter qu'un utilisateur
+      // ne révoque la session d'un autre s'il venait à connaître son refresh token.
+      await query('DELETE FROM refresh_tokens WHERE token = $1 AND user_id = $2', [hashToken(refreshToken), req.user.id]);
     }
     res.json({ message: 'Déconnexion réussie' });
   } catch (err) {

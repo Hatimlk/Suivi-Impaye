@@ -655,6 +655,10 @@ router.get('/:id', async (req, res) => {
 // POST /api/dossiers
 router.post('/', validate(createDossierSchema), async (req, res) => {
   try {
+    if (req.user.role === 'lecture_seule') {
+      return res.status(403).json({ error: 'Lecture seule - création interdite' });
+    }
+
     const data = req.validated;
 
     // Vérifier que le commercial assigné existe
@@ -721,7 +725,11 @@ router.put('/:id', validate(updateDossierSchema), async (req, res) => {
       return res.status(403).json({ error: 'Lecture seule - modification interdite' });
     }
 
-    const data = req.validated;
+    const data = { ...req.validated };
+    if (req.user.role === 'commercial') {
+      // La réaffectation à un autre commercial passe exclusivement par PATCH /:id/reaffecter
+      delete data.commercial_id;
+    }
     const fields = [];
     const values = [];
     let paramIndex = 1;
