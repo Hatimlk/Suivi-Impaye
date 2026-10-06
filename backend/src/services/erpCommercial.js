@@ -1,6 +1,12 @@
 const DEFAULT_COMMERCIALS = Object.freeze({
+  34: 'OUSSAMA',
   48: 'NABIL',
+  49: 'OMAR',
   50: 'YASSIR',
+  53: 'OUSSAMA',
+  56: 'FAHD',
+  57: 'FAYÇAL',
+  61: 'GII',
   70: 'LAHCEN',
   75: 'RACHID',
 });

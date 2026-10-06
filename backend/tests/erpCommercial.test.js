@@ -8,6 +8,12 @@ import {
 describe('commercial ERP', () => {
   it('resolves the commercial IDs confirmed in OpenPROD', () => {
     const map = buildCommercialMap();
+    expect(resolveCommercialName({ erp_commercial_id: 34 }, map)).toBe('OUSSAMA');
+    expect(resolveCommercialName({ erp_commercial_id: 49 }, map)).toBe('OMAR');
+    expect(resolveCommercialName({ erp_commercial_id: 53 }, map)).toBe('OUSSAMA');
+    expect(resolveCommercialName({ erp_commercial_id: 56 }, map)).toBe('FAHD');
+    expect(resolveCommercialName({ erp_commercial_id: 57 }, map)).toBe('FAYÇAL');
+    expect(resolveCommercialName({ erp_commercial_id: 61 }, map)).toBe('GII');
     expect(resolveCommercialName({ erp_commercial_id: 75 }, map)).toBe('RACHID');
     expect(resolveCommercialName({ erp_commercial_id: 70 }, map)).toBe('LAHCEN');
     expect(resolveCommercialName({ erp_commercial_id: 48 }, map)).toBe('NABIL');
