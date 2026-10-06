@@ -92,7 +92,11 @@ router.get('/impayes', validateQuery(erpImpayesQuerySchema), async (req, res) =>
     const sort = sortMap[req.validatedQuery.sort] || 'v.date_saisie';
     const order = String(req.validatedQuery.order).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const [count, rows] = await Promise.all([
-      query(`SELECT COUNT(*)::int AS count FROM erp_impayes_snapshot v LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id ${where}`, params),
+      query(`SELECT COUNT(*)::int AS count
+        FROM erp_impayes_snapshot v
+        LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+        LEFT JOIN users u ON u.id = s.commercial_id
+        ${where}`, params),
       query(`${selectDossier} ${where} ORDER BY ${sort} ${order} NULLS LAST LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, offset]),
     ]);
     res.json({ dossiers: rows.rows.map(mapDossier), total: count.rows[0].count, page, limit, totalPages: Math.ceil(count.rows[0].count / limit) });

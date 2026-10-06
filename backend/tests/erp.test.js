@@ -55,14 +55,30 @@ describe('GET /api/erp/impayes (list)', () => {
     db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('SELECT COUNT(*)'), respond: () => [{ count: '0' }] }]));
     await request(buildApp()).get('/api/erp/impayes').set('Authorization', authHeader(USERS.admin));
     const countCall = db.query.mock.calls.find(([sql]) => sql.includes('SELECT COUNT(*)'));
-    expect(countCall[0]).not.toContain('s.commercial_id');
+    expect(countCall[0]).not.toMatch(/WHERE[\s\S]*s\.commercial_id\s*=/);
   });
 
   it('does not scope the list for a lecture_seule (global read access)', async () => {
     db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('SELECT COUNT(*)'), respond: () => [{ count: '0' }] }]));
     await request(buildApp()).get('/api/erp/impayes').set('Authorization', authHeader(USERS.lecture));
     const countCall = db.query.mock.calls.find(([sql]) => sql.includes('SELECT COUNT(*)'));
-    expect(countCall[0]).not.toContain('s.commercial_id');
+    expect(countCall[0]).not.toMatch(/WHERE[\s\S]*s\.commercial_id\s*=/);
+  });
+
+  it('joins users and applies the selected commercial name to count and rows', async () => {
+    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('SELECT COUNT(*)'), respond: () => [{ count: '0' }] }]));
+    const res = await request(buildApp())
+      .get('/api/erp/impayes?commercial_id=FAY%C3%87AL')
+      .set('Authorization', authHeader(USERS.admin));
+
+    expect(res.status).toBe(200);
+    const listCalls = db.query.mock.calls.filter(([sql]) => sql.includes('erp_impayes_snapshot'));
+    expect(listCalls).toHaveLength(2);
+    for (const [sql, params] of listCalls) {
+      expect(sql).toContain('LEFT JOIN users u ON u.id = s.commercial_id');
+      expect(sql).toContain("COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) = $1");
+      expect(params[0]).toBe('FAYÇAL');
+    }
   });
 });
 
