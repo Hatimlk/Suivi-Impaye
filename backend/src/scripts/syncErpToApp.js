@@ -38,13 +38,30 @@ try {
   `);
 
   if (result.rows.length === 0) throw new Error('Aucun impaye ERP trouve; synchronisation annulee par securite.');
+  const impayes = result.rows.map((row) => ({
+    ...row,
+    erp_voucher_id: Number(row.erp_voucher_id),
+    montant: Number(row.montant),
+    erp_partner_id: row.erp_partner_id == null ? null : Number(row.erp_partner_id),
+  }));
+  const invalidNumericRow = impayes.find((row) =>
+    !Number.isInteger(row.erp_voucher_id)
+    || !Number.isFinite(row.montant)
+    || (row.erp_partner_id !== null && !Number.isInteger(row.erp_partner_id))
+  );
+  if (invalidNumericRow) throw new Error('Une ligne ERP contient un identifiant ou un montant invalide.');
   const response = await fetch(targetUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-    body: JSON.stringify({ generatedAt: new Date().toISOString(), impayes: result.rows }),
+    body: JSON.stringify({ generatedAt: new Date().toISOString(), impayes }),
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+  if (!response.ok) {
+    const detail = Array.isArray(body.details) && body.details[0]
+      ? ` (${body.details[0].field}: ${body.details[0].message})`
+      : '';
+    throw new Error(`${body.error || `HTTP ${response.status}`}${detail}`);
+  }
   console.log(`Synchronisation terminee: ${body.synchronized} impaye(s).`);
 } catch (error) {
   console.error(`Echec de synchronisation: ${error.message}`);
