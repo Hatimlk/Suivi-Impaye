@@ -2,7 +2,6 @@ const DEFAULT_COMMERCIALS = Object.freeze({
   34: 'OUSSAMA',
   48: 'NABIL',
   49: 'OMAR',
-  50: 'YASSIR',
   53: 'OUSSAMA',
   56: 'FAHD',
   57: 'FAYÇAL',
@@ -10,6 +9,9 @@ const DEFAULT_COMMERCIALS = Object.freeze({
   70: 'LAHCEN',
   75: 'RACHID',
 });
+
+const RETIRED_COMMERCIALS = new Set(['BADR', 'YASSIR']);
+const RETIRED_UNNAMED_IDS = new Set(['50']);
 
 export function parseCommercialMap(value = '') {
   if (!value.trim()) return {};
@@ -31,9 +33,12 @@ export function buildCommercialMap(value = '') {
 
 export function resolveCommercialName(row, commercialMap) {
   const providedName = String(row.erp_commercial_nom || '').trim();
-  if (providedName) return providedName;
+  if (providedName && !RETIRED_COMMERCIALS.has(providedName.toUpperCase())) return providedName;
 
   const sellerId = row.erp_commercial_id;
   if (sellerId == null) return '';
-  return commercialMap[String(sellerId)] || `Commercial ERP #${sellerId}`;
+  const mappedName = commercialMap[String(sellerId)];
+  if (mappedName) return mappedName;
+  if (RETIRED_UNNAMED_IDS.has(String(sellerId))) return '';
+  return `Commercial ERP #${sellerId}`;
 }

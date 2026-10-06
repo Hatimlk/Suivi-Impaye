@@ -8,6 +8,7 @@ dotenv.config({ path: [resolve(projectRoot, '.env.local'), resolve(projectRoot, 
 import erpPool, { erpQuery } from '../config/erpDb.js';
 import { resolveCollectingBankName } from '../services/erpBank.js';
 import { buildCommercialMap, resolveCommercialName } from '../services/erpCommercial.js';
+import { resolveRelation } from '../services/erpRelation.js';
 
 const targetUrl = process.env.ERP_SYNC_TARGET_URL || 'https://suivi-impaye.vercel.app/api/erp-sync';
 const secret = process.env.ERP_SYNC_SECRET;
@@ -30,7 +31,6 @@ try {
       COALESCE(NULLIF(v.number, ''), NULLIF(v.reference, ''), v.id::text) AS numero_valeur,
       COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''), 'Client ERP') AS nom_tire,
       COALESCE(v.porteur_cheque, '') AS porteur,
-      'CD'::text AS relation,
       v.collecting_bank AS erp_collecting_bank_id,
       v.partner_id AS erp_partner_id,
       v.partner_seller_id AS erp_commercial_id,
@@ -48,6 +48,7 @@ try {
     montant: Number(row.montant),
     erp_partner_id: row.erp_partner_id == null ? null : Number(row.erp_partner_id),
     banque: resolveCollectingBankName(row.erp_collecting_bank_id),
+    relation: resolveRelation(row.nom_tire, row.porteur),
     erp_commercial_nom: resolveCommercialName(row, commercialMap),
   }));
   const invalidNumericRow = impayes.find((row) =>
