@@ -85,7 +85,7 @@ describe('GET /api/erp/impayes (list)', () => {
 describe('GET /api/erp/impayes/:id', () => {
   it("blocks a commercial from reading another commercial's ERP dossier", async () => {
     db.query.mockImplementation(
-      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: USERS.commercialB.id })] }])
+      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: USERS.commercialB.id, suivi_commercial_nom: 'CommB' })] }])
     );
     const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
@@ -93,7 +93,7 @@ describe('GET /api/erp/impayes/:id', () => {
 
   it('blocks a commercial from reading an unassigned ERP dossier', async () => {
     db.query.mockImplementation(
-      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: null })] }])
+      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: null, suivi_commercial_nom: null })] }])
     );
     const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(403);
@@ -110,6 +110,14 @@ describe('GET /api/erp/impayes/:id', () => {
   it('lets a commercial read an unassigned dossier bearing their ERP commercial name', async () => {
     db.query.mockImplementation(
       fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: null, erp_commercial_nom: 'COMM A' })] }])
+    );
+    const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
+    expect(res.status).toBe(200);
+  });
+
+  it('recognizes an older account assignment with the same commercial name', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: USERS.commercialB.id, suivi_commercial_nom: 'COMM A' })] }])
     );
     const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(200);
@@ -132,7 +140,8 @@ describe('GET /api/erp/partenaires', () => {
   it('does not scope partner names for an admin', async () => {
     await request(buildApp()).get('/api/erp/partenaires').set('Authorization', authHeader(USERS.admin));
     const call = db.query.mock.calls.find(([sql]) => sql.includes('erp_impayes_snapshot'));
-    expect(call[0]).not.toContain('s.commercial_id');
+    expect(call[0]).not.toContain('REGEXP_REPLACE');
+    expect(call[1]).toEqual([]);
   });
 });
 

@@ -40,7 +40,7 @@ function addCommercialScope(conditions, params, user) {
   const userIdParam = `$${params.length}`;
   params.push(normalizeCommercialName(user.nom));
   const userNameParam = `$${params.length}`;
-  conditions.push(`(s.commercial_id = ${userIdParam} OR (s.commercial_id IS NULL AND ${normalizedCommercialSql('v.erp_commercial_nom')} = ${userNameParam}))`);
+  conditions.push(`(s.commercial_id = ${userIdParam} OR ${normalizedCommercialSql("COALESCE(NULLIF(BTRIM(u.nom), ''), v.erp_commercial_nom)")} = ${userNameParam})`);
 }
 
 const selectDossier = `
@@ -159,10 +159,9 @@ router.get('/impayes/:id', async (req, res) => {
   if (!result.rows[0]) return res.status(404).json({ error: 'Impaye ERP introuvable' });
   const dossier = mapDossier(result.rows[0]);
   if (req.user.role === 'commercial') {
-    const erpOwner = normalizeCommercialName(dossier.erp_commercial_nom);
-    const ownsDossier = dossier.commercial_id
-      ? dossier.commercial_id === req.user.id
-      : erpOwner && erpOwner === normalizeCommercialName(req.user.nom);
+    const effectiveOwner = normalizeCommercialName(dossier.commercial_nom);
+    const ownsDossier = dossier.commercial_id === req.user.id
+      || (effectiveOwner && effectiveOwner === normalizeCommercialName(req.user.nom));
     if (!ownsDossier) return res.status(403).json({ error: 'Acces refuse' });
   }
   const actions = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.erp_voucher_id = $1 ORDER BY a.date_action DESC`, [id]);
@@ -175,6 +174,7 @@ router.get('/partenaires', async (req, res) => {
     `SELECT DISTINCT v.nom_tire AS nom
      FROM erp_impayes_snapshot v
      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+     LEFT JOIN users u ON u.id = s.commercial_id
      ${where} AND v.nom_tire <> ''
      ORDER BY nom`,
     params
@@ -234,7 +234,7 @@ router.get('/stats', async (req, res) => {
     const isCommercial = req.user.role === 'commercial';
     const params = isCommercial ? [req.user.id, normalizeCommercialName(req.user.nom)] : [];
     const filterClause = isCommercial
-      ? `AND (s.commercial_id = $1 OR (s.commercial_id IS NULL AND ${normalizedCommercialSql('v.erp_commercial_nom')} = $2))`
+      ? `AND (s.commercial_id = $1 OR ${normalizedCommercialSql("COALESCE(NULLIF(BTRIM(u.nom), ''), v.erp_commercial_nom)")} = $2)`
       : '';
     const base = `FROM erp_impayes_snapshot v
       LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
@@ -302,17 +302,17 @@ router.get('/stats', async (req, res) => {
 async function assertErpOwnership(req, res, id) {
   if (req.user.role !== 'commercial') return true;
   const assign = await query(
-    `SELECT s.commercial_id, v.erp_commercial_nom
+    `SELECT s.commercial_id, v.erp_commercial_nom, u.nom AS suivi_commercial_nom
      FROM erp_impayes_snapshot v
      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+     LEFT JOIN users u ON u.id = s.commercial_id
      WHERE v.erp_voucher_id = $1 AND v.actif = true`,
     [id]
   );
   const ownerId = assign.rows[0]?.commercial_id || null;
-  const erpOwner = normalizeCommercialName(assign.rows[0]?.erp_commercial_nom);
-  const ownsDossier = ownerId
-    ? ownerId === req.user.id
-    : erpOwner && erpOwner === normalizeCommercialName(req.user.nom);
+  const effectiveOwner = normalizeCommercialName(assign.rows[0]?.suivi_commercial_nom || assign.rows[0]?.erp_commercial_nom);
+  const ownsDossier = ownerId === req.user.id
+    || (effectiveOwner && effectiveOwner === normalizeCommercialName(req.user.nom));
   if (!ownsDossier) {
     res.status(403).json({ error: 'Accès refusé' });
     return false;
