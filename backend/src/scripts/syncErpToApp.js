@@ -42,12 +42,13 @@ try {
   `);
 
   const partnersResult = await erpQuery(`
-    SELECT DISTINCT BTRIM(COALESCE(NULLIF(name, ''), NULLIF(display_name, ''))) AS nom
-    FROM res_partner
-    WHERE is_customer IS TRUE
-      AND active IS TRUE
-      AND COALESCE(inactive_client, FALSE) IS FALSE
-      AND COALESCE(NULLIF(BTRIM(name), ''), NULLIF(BTRIM(display_name), '')) IS NOT NULL
+    SELECT DISTINCT BTRIM(COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''))) AS nom
+    FROM account_voucher v
+    JOIN res_partner p ON p.id = v.partner_id
+    WHERE v.state = 'impaye'
+      AND v.type = 'receipt'
+      AND v.impaye_date IS NOT NULL
+      AND COALESCE(NULLIF(BTRIM(p.name), ''), NULLIF(BTRIM(p.display_name), '')) IS NOT NULL
     ORDER BY nom
   `);
 
