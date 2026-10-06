@@ -6,9 +6,11 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 dotenv.config({ path: [resolve(projectRoot, '.env.local'), resolve(projectRoot, '.env')] });
 
 import erpPool, { erpQuery } from '../config/erpDb.js';
+import { buildCommercialMap, resolveCommercialName } from '../services/erpCommercial.js';
 
 const targetUrl = process.env.ERP_SYNC_TARGET_URL || 'https://suivi-impaye.vercel.app/api/erp-sync';
 const secret = process.env.ERP_SYNC_SECRET;
+const commercialMap = buildCommercialMap(process.env.ERP_COMMERCIAL_MAP);
 
 if (!secret) {
   console.error('ERP_SYNC_SECRET est requise.');
@@ -30,6 +32,7 @@ try {
       'CD'::text AS relation,
       CASE WHEN v.collecting_bank IS NULL THEN 'Non renseignee' ELSE 'Banque #' || v.collecting_bank::text END AS banque,
       v.partner_id AS erp_partner_id,
+      v.partner_seller_id AS erp_commercial_id,
       COALESCE(p.seller_id_name, '') AS erp_commercial_nom
     FROM account_voucher v
     LEFT JOIN res_partner p ON p.id = v.partner_id
@@ -43,6 +46,7 @@ try {
     erp_voucher_id: Number(row.erp_voucher_id),
     montant: Number(row.montant),
     erp_partner_id: row.erp_partner_id == null ? null : Number(row.erp_partner_id),
+    erp_commercial_nom: resolveCommercialName(row, commercialMap),
   }));
   const invalidNumericRow = impayes.find((row) =>
     !Number.isInteger(row.erp_voucher_id)
