@@ -66,7 +66,14 @@ function buildFilters(requestQuery, user) {
   // Un commercial ne doit voir que les dossiers qui lui sont affectés
   if (user?.role === 'commercial') add('s.commercial_id = ?', user.id);
   if (requestQuery.search) add('(v.nom_tire ILIKE ? OR v.numero_valeur ILIKE ? OR v.banque ILIKE ?)', `%${requestQuery.search}%`);
-  if (requestQuery.nom_tire) add('v.nom_tire ILIKE ?', `%${requestQuery.nom_tire}%`);
+  if (requestQuery.nom_tire) add('v.nom_tire = ?', requestQuery.nom_tire);
+  if (requestQuery.banque) add('v.banque = ?', requestQuery.banque);
+  if (requestQuery.relation) add('v.relation = ?', requestQuery.relation);
+  if (requestQuery.commercial_id === '__UNASSIGNED__') {
+    conditions.push("COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) IS NULL");
+  } else if (requestQuery.commercial_id) {
+    add("COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) = ?", requestQuery.commercial_id);
+  }
   if (requestQuery.type_valeur) add('v.type_valeur = ?', requestQuery.type_valeur);
   if (requestQuery.date_debut) add('v.date_saisie >= ?', requestQuery.date_debut);
   if (requestQuery.date_fin) add('v.date_saisie <= ?', requestQuery.date_fin);
@@ -119,6 +126,38 @@ router.get('/partenaires', async (req, res) => {
     params
   );
   res.json(result.rows.map((row) => row.nom));
+});
+
+router.get('/filters', async (req, res) => {
+  try {
+    const isCommercial = req.user.role === 'commercial';
+    const params = isCommercial ? [req.user.id] : [];
+    const roleFilter = isCommercial ? 'AND s.commercial_id = $1' : '';
+    const joins = `FROM erp_impayes_snapshot v
+      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+      LEFT JOIN users u ON u.id = s.commercial_id
+      WHERE v.actif = true ${roleFilter}`;
+    const [partners, commercials, statuses, banks] = await Promise.all([
+      query(`SELECT DISTINCT v.nom_tire AS value ${joins} AND NULLIF(BTRIM(v.nom_tire), '') IS NOT NULL ORDER BY value`, params),
+      query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) AS value ${joins} ORDER BY value NULLS LAST`, params),
+      query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(s.statut), ''), 'Attente retour du client') AS value ${joins} ORDER BY value`, params),
+      query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(v.banque), ''), 'Non renseignee') AS value ${joins} ORDER BY value`, params),
+    ]);
+    const commercialValues = commercials.rows.map((row) => row.value).filter(Boolean);
+    const hasUnassigned = commercials.rows.some((row) => !row.value);
+    res.json({
+      partenaires: partners.rows.map((row) => row.value),
+      commerciaux: [
+        ...commercialValues.map((name) => ({ id: name, nom: name })),
+        ...(hasUnassigned ? [{ id: '__UNASSIGNED__', nom: 'Non affecte' }] : []),
+      ],
+      statuts: statuses.rows.map((row) => row.value),
+      banques: banks.rows.map((row) => row.value),
+    });
+  } catch (error) {
+    console.error('Erreur filtres ERP:', error.message);
+    res.status(503).json({ error: 'Filtres ERP indisponibles' });
+  }
 });
 
 router.get('/stats', async (req, res) => {

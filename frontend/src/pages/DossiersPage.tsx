@@ -48,16 +48,16 @@ export default function DossiersPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Promise.all([
-      api.getUsers().catch(() => []),
-      api.getBanques().catch(() => []),
-      api.getStatuts().catch(() => []),
-      api.getPartenaires().catch(() => []),
-    ]).then(([users, b, s, p]) => {
-      setCommerciaux(users.filter((u: any) => u.role === 'commercial' && u.actif));
-      setBanques(b.map((x: any) => x.nom));
-      setStatuts(s.map((x: any) => x.libelle));
-      setPartenaires(p);
+    api.getErpFilters().then((data) => {
+      setCommerciaux(data.commerciaux);
+      setBanques(data.banques);
+      setStatuts(data.statuts);
+      setPartenaires(data.partenaires);
+    }).catch(() => {
+      setCommerciaux([]);
+      setBanques([]);
+      setStatuts([]);
+      setPartenaires([]);
     });
   }, []);
 

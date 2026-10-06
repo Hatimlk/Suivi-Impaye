@@ -84,6 +84,12 @@ export const api = {
   },
   getDossier: (id: string) => request<any>(`/erp/impayes/${id}`),
   getPartenaires: () => request<string[]>('/erp/partenaires'),
+  getErpFilters: () => request<{
+    partenaires: string[];
+    commerciaux: { id: string; nom: string }[];
+    statuts: string[];
+    banques: string[];
+  }>('/erp/filters'),
   getCalendrier: () => request<any[]>('/dossiers/calendrier'),
   createDossier: (data: any) => request<any>('/dossiers', { method: 'POST', body: JSON.stringify(data) }),
   updateDossier: (id: string, data: any) =>
