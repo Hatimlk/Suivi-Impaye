@@ -132,14 +132,47 @@ describe('GET /api/erp/stats', () => {
   it("scopes aggregate stats to the caller's own portfolio for a commercial", async () => {
     await request(buildApp()).get('/api/erp/stats').set('Authorization', authHeader(USERS.commercialA));
     const call = db.query.mock.calls.find(([sql]) => sql.includes('COUNT(*)::int AS count, COALESCE(SUM'));
-    expect(call[0]).toContain('s.commercial_id');
+    expect(call[0]).toMatch(/WHERE[\s\S]*s\.commercial_id\s*=\s*\$1/);
     expect(call[1]).toContain(USERS.commercialA.id);
   });
 
   it('does not scope aggregate stats for an admin', async () => {
     await request(buildApp()).get('/api/erp/stats').set('Authorization', authHeader(USERS.admin));
     const call = db.query.mock.calls.find(([sql]) => sql.includes('COUNT(*)::int AS count, COALESCE(SUM'));
-    expect(call[0]).not.toContain('s.commercial_id');
+    expect(call[0]).not.toMatch(/WHERE[\s\S]*s\.commercial_id\s*=/);
+  });
+
+  it('returns commercial portfolios and weekly, monthly and annual chart series', async () => {
+    db.query.mockImplementation(fakeQueryImpl([
+      { match: (sql) => sql.includes('AS montant, MAX'), respond: () => [{ count: 2, montant: 300, date_reference: '2026-10-01' }] },
+      { match: (sql) => sql.includes('AS statut'), respond: () => [{ statut: 'Contentieux', count: 2, total_montant: 300 }] },
+      { match: (sql) => sql.includes('AS banque'), respond: () => [{ banque: 'Banque CDM', count: 2, total_montant: 300 }] },
+      { match: (sql) => sql.includes('AS commercial_nom') && !sql.includes('AS periode'), respond: () => [
+        { commercial_nom: 'RACHID', count: 1, total_montant: 100 },
+        { commercial_nom: 'OMAR', count: 1, total_montant: 200 },
+      ] },
+      { match: (sql) => sql.includes('v.type_valeur'), respond: () => [{ type_valeur: 'CHQ', count: 2, total_montant: 300 }] },
+      { match: (sql) => sql.includes("AS mois"), respond: () => [{ mois: '2026-10', count: 2, total_montant: 300 }] },
+      { match: (sql) => sql.includes("DATE_TRUNC('week'"), respond: () => [
+        { periode: '2026-W40', label: 'Sem. 40 2026', commercial_nom: 'RACHID', count: 1, total_montant: 100 },
+        { periode: '2026-W40', label: 'Sem. 40 2026', commercial_nom: 'OMAR', count: 1, total_montant: 200 },
+      ] },
+      { match: (sql) => sql.includes("AS periode") && sql.includes("'YYYY-MM'"), respond: () => [
+        { periode: '2026-10', label: '2026-10', commercial_nom: 'RACHID', count: 1, total_montant: 100 },
+      ] },
+      { match: (sql) => sql.includes("AS periode") && sql.includes("'YYYY'"), respond: () => [
+        { periode: '2026', label: '2026', commercial_nom: 'OMAR', count: 1, total_montant: 200 },
+      ] },
+      { match: (sql) => sql.includes("INTERVAL '7 days'"), respond: () => [{ count: 1 }] },
+      { match: (sql) => sql.includes('FROM erp_sync_runs'), respond: () => [{ last_sync: '2026-10-06T12:00:00Z' }] },
+    ]));
+
+    const res = await request(buildApp()).get('/api/erp/stats').set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(200);
+    expect(res.body.parCommercial).toHaveLength(2);
+    expect(res.body.evolutionHebdo[0]).toMatchObject({ total_montant: 300, RACHID: 100, OMAR: 200 });
+    expect(res.body.evolutionMensuelleDetail[0]).toMatchObject({ periode: '2026-10', RACHID: 100 });
+    expect(res.body.evolutionAnnuelle[0]).toMatchObject({ periode: '2026', OMAR: 200 });
   });
 });
 

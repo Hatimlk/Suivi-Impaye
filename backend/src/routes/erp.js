@@ -56,6 +56,30 @@ function mapDossier(row) {
   };
 }
 
+function pivotEvolution(rows) {
+  const periods = new Map();
+  for (const row of rows) {
+    if (!periods.has(row.periode)) {
+      periods.set(row.periode, {
+        periode: row.periode,
+        label: row.label || row.periode,
+        total_montant: 0,
+        count: 0,
+        commercials: {},
+      });
+    }
+    const period = periods.get(row.periode);
+    const amount = Number(row.total_montant || 0);
+    const count = Number(row.count || 0);
+    const commercial = row.commercial_nom || 'Non affecté';
+    period.total_montant += amount;
+    period.count += count;
+    period.commercials[commercial] = (period.commercials[commercial] || 0) + amount;
+    period[commercial] = (period[commercial] || 0) + amount;
+  }
+  return Array.from(periods.values());
+}
+
 function buildFilters(requestQuery, user) {
   const conditions = ['v.actif = true'];
   const params = [];
@@ -169,15 +193,65 @@ router.get('/stats', async (req, res) => {
     const isCommercial = req.user.role === 'commercial';
     const params = isCommercial ? [req.user.id] : [];
     const filterClause = isCommercial ? 'AND s.commercial_id = $1' : '';
-    const base = `FROM erp_impayes_snapshot v LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id WHERE v.actif = true ${filterClause}`;
-    const [total, types, monthly, sync] = await Promise.all([
+    const base = `FROM erp_impayes_snapshot v
+      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+      LEFT JOIN users u ON u.id = s.commercial_id
+      WHERE v.actif = true ${filterClause}`;
+    const commercialName = `COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), ''), 'Non affecté')`;
+    const [total, statuses, banks, commercials, types, monthly, weeklyRaw, monthlyRaw, annualRaw, dormant, sync] = await Promise.all([
       query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS montant, MAX(v.date_saisie) AS date_reference ${base}`, params),
+      query(`SELECT COALESCE(NULLIF(BTRIM(s.statut), ''), 'Attente retour du client') AS statut,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY 1 ORDER BY total_montant DESC`, params),
+      query(`SELECT COALESCE(NULLIF(BTRIM(v.banque), ''), 'Non renseignée') AS banque,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY 1 ORDER BY total_montant DESC`, params),
+      query(`SELECT ${commercialName} AS commercial_nom,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY 1 ORDER BY total_montant DESC`, params),
       query(`SELECT v.type_valeur, COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant ${base} GROUP BY v.type_valeur ORDER BY v.type_valeur`, params),
       query(`SELECT TO_CHAR(v.date_saisie, 'YYYY-MM') AS mois, COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant ${base} GROUP BY 1 ORDER BY 1`, params),
+      query(`SELECT TO_CHAR(DATE_TRUNC('week', v.date_saisie), 'IYYY-"W"IW') AS periode,
+                    TO_CHAR(DATE_TRUNC('week', v.date_saisie), '"Sem." IW IYYY') AS label,
+                    ${commercialName} AS commercial_nom,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY DATE_TRUNC('week', v.date_saisie), 1, 2, 3
+             ORDER BY DATE_TRUNC('week', v.date_saisie)`, params),
+      query(`SELECT TO_CHAR(v.date_saisie, 'YYYY-MM') AS periode,
+                    TO_CHAR(v.date_saisie, 'YYYY-MM') AS label,
+                    ${commercialName} AS commercial_nom,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY 1, 2, 3 ORDER BY 1`, params),
+      query(`SELECT TO_CHAR(v.date_saisie, 'YYYY') AS periode,
+                    TO_CHAR(v.date_saisie, 'YYYY') AS label,
+                    ${commercialName} AS commercial_nom,
+                    COUNT(*)::int AS count, COALESCE(SUM(v.montant), 0)::float8 AS total_montant
+             ${base}
+             GROUP BY 1, 2, 3 ORDER BY 1`, params),
+      query(`SELECT COUNT(*)::int AS count ${base}
+             AND COALESCE(s.date_derniere_action, s.date_creation, v.synced_at) < NOW() - INTERVAL '7 days'`, params),
       query(`SELECT MAX(completed_at) AS last_sync FROM erp_sync_runs WHERE status = 'success'`),
     ]);
-    res.json({ total: total.rows[0], parStatut: [{ statut: 'Impayes ERP', count: total.rows[0].count, total_montant: total.rows[0].montant }], parBanque: [], parCommercial: [], parType: types.rows, evolutionMensuelle: monthly.rows.slice(-12), evolutionHebdo: [], evolutionMensuelleDetail: [], evolutionAnnuelle: [], dossiersDormants: 0, lastSync: sync.rows[0].last_sync });
+    res.json({
+      total: total.rows[0],
+      parStatut: statuses.rows,
+      parBanque: banks.rows,
+      parCommercial: commercials.rows,
+      parType: types.rows,
+      evolutionMensuelle: monthly.rows.slice(-12),
+      evolutionHebdo: pivotEvolution(weeklyRaw.rows).slice(-16),
+      evolutionMensuelleDetail: pivotEvolution(monthlyRaw.rows).slice(-12),
+      evolutionAnnuelle: pivotEvolution(annualRaw.rows),
+      dossiersDormants: dormant.rows[0]?.count || 0,
+      lastSync: sync.rows[0]?.last_sync || null,
+    });
   } catch (error) {
+    console.error('Erreur statistiques ERP:', error.message);
     res.status(503).json({ error: 'Donnees ERP synchronisees indisponibles' });
   }
 });
