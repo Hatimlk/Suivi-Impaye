@@ -9,6 +9,7 @@ import {
   ArrowLeft, Send, Calendar, Building2, Hash, User, FileText,
   Clock, Printer, Trash2, MessageSquare, Pencil,
 } from 'lucide-react';
+import { STATUTS_SUIVI } from '../constants/statuts';
 
 export default function DossierDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,21 +22,7 @@ export default function DossierDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [newStatut, setNewStatut] = useState('');
   const [showStatutChange, setShowStatutChange] = useState(false);
-  const [statutsRef, setStatutsRef] = useState<string[]>([
-    'Attente retour du client',
-    'En cours de traitement',
-    'Régularisé - OK',
-    'Représenté',
-    'Règlement à recevoir',
-    'Règlement à récupérer',
-    'Règlement partiel',
-    'Valeur à remplacer',
-    "Valeur envoyée à l'encaissement",
-    'A rendre au client',
-    'Contentieux',
-    'Pré-contentieux',
-    'Sans suite',
-  ]);
+  const [statutsRef, setStatutsRef] = useState<string[]>([...STATUTS_SUIVI]);
   const [motifChangement, setMotifChangement] = useState('');
 
   const [showEditModal, setShowEditModal] = useState(false);

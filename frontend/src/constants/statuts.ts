@@ -1,0 +1,16 @@
+export const STATUTS_SUIVI = [
+  'Contentieux',
+  'Pré-contentieux',
+  'A rendre au client',
+  'A voir avec le commercial',
+  'Attente retour du client',
+  'Valeur à représenter',
+  'Règlement à recevoir',
+  'Règlement à récupérer',
+  'Règlement partiel',
+  'Régularisé - OK',
+  'Représenté',
+  'Sans suite',
+  'Valeur à remplacer',
+  "Valeur envoyée à l'encaissement",
+] as const;

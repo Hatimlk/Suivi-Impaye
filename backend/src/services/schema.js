@@ -141,6 +141,26 @@ export function ensureErpTrackingTables() {
       );
       CREATE INDEX IF NOT EXISTS idx_erp_actions_voucher ON erp_actions(erp_voucher_id);
       CREATE INDEX IF NOT EXISTS idx_erp_suivi_commercial ON erp_dossier_suivi(commercial_id);
+
+      INSERT INTO statuts_reference (libelle, ordre, couleur) VALUES
+        ('Contentieux', 0, '#dc2626'),
+        ('Pré-contentieux', 1, '#ea580c'),
+        ('A rendre au client', 2, '#d97706'),
+        ('A voir avec le commercial', 3, '#ca8a04'),
+        ('Attente retour du client', 4, '#65a30d'),
+        ('Valeur à représenter', 5, '#16a34a'),
+        ('Règlement à recevoir', 6, '#059669'),
+        ('Règlement à récupérer', 7, '#0d9488'),
+        ('Règlement partiel', 8, '#0891b2'),
+        ('Régularisé - OK', 9, '#0284c7'),
+        ('Représenté', 10, '#2563eb'),
+        ('Sans suite', 11, '#7c3aed'),
+        ('Valeur à remplacer', 12, '#9333ea'),
+        ('Valeur envoyée à l''encaissement', 13, '#c026d3')
+      ON CONFLICT (libelle) DO UPDATE SET
+        ordre = EXCLUDED.ordre,
+        couleur = EXCLUDED.couleur,
+        actif = true;
     `).catch((error) => {
       erpTrackingMigrationPromise = undefined;
       throw error;

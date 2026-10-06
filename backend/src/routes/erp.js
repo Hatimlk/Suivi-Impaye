@@ -144,7 +144,7 @@ router.get('/filters', async (req, res) => {
     const [partners, commercials, statuses, banks] = await Promise.all([
       query(`SELECT DISTINCT v.nom_tire AS value ${joins} AND NULLIF(BTRIM(v.nom_tire), '') IS NOT NULL ORDER BY value`, params),
       query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) AS value ${joins} ORDER BY value NULLS LAST`, params),
-      query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(s.statut), ''), 'Attente retour du client') AS value ${joins} ORDER BY value`, params),
+      query(`SELECT libelle AS value FROM statuts_reference WHERE actif = true ORDER BY ordre, libelle`),
       query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(v.banque), ''), 'Non renseignee') AS value ${joins} ORDER BY value`, params),
     ]);
     const commercialValues = commercials.rows.map((row) => row.value).filter(Boolean);

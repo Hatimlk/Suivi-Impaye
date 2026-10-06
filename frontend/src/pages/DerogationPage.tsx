@@ -10,19 +10,9 @@ import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, StatusBadge, Button, Input, Select,
   Textarea, Modal, Pagination, EmptyState, PageSpinner, PageHeader,
 } from '../components/ui';
+import { STATUTS_SUIVI } from '../constants/statuts';
 
-const STATUTS_DECISION = [
-  'Régularisé - OK',
-  'Sans suite',
-  'Représenté',
-  'Règlement à recevoir',
-  'Règlement à récupérer',
-  'Règlement partiel',
-  'Valeur à remplacer',
-  "Valeur envoyée à l'encaissement",
-  'A rendre au client',
-  'Contentieux',
-];
+const STATUTS_DECISION = [...STATUTS_SUIVI];
 
 export default function DerogationPage() {
   const navigate = useNavigate();
