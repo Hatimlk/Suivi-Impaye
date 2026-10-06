@@ -238,7 +238,7 @@ export default function DossierDetailPage() {
                 : 'Aucune'
             }
           />
-          <InfoField icon={Clock} label="Créé le" value={formatDate(dossier.date_creation)} />
+          <InfoField icon={Clock} label="Date d'impayé dans ERP" value={formatDate(dossier.date_saisie)} />
         </div>
 
         {dossier.observations && (
