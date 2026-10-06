@@ -104,6 +104,19 @@ describe('POST /api/erp-sync', () => {
     expect(res.status).toBe(200);
   });
 
+  it('synchronizes the current ERP partner reference list', async () => {
+    const res = await request(buildApp())
+      .post('/api/erp-sync')
+      .set('Authorization', 'Bearer correct-shared-secret')
+      .send({ impayes: [], partenaires: [{ nom: 'CLIENT ERP ACTIF' }] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.synchronizedPartners).toBe(1);
+    const partnerUpsert = db.client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO partenaires_reference'));
+    expect(partnerUpsert).toBeTruthy();
+    expect(partnerUpsert[1][0]).toContain('CLIENT ERP ACTIF');
+  });
+
   // Doit rester le dernier test : il epuise volontairement le limiteur par IP partage au
   // niveau du module pour le reste de ce fichier de test.
   it('returns a clear 429 once the per-IP limit is exceeded, regardless of secret validity', async () => {

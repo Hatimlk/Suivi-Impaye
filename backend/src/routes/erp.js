@@ -156,6 +156,21 @@ router.get('/partenaires', async (req, res) => {
   res.json(result.rows.map((row) => row.nom));
 });
 
+router.get('/calendrier', async (req, res) => {
+  try {
+    const { where, params } = buildFilters({}, req.user);
+    const result = await query(
+      `${selectDossier} ${where} AND v.date_echeance IS NOT NULL
+       ORDER BY v.date_echeance, v.nom_tire`,
+      params
+    );
+    res.json(result.rows.map(mapDossier));
+  } catch (error) {
+    console.error('Erreur calendrier ERP:', error.message);
+    res.status(503).json({ error: 'Calendrier ERP indisponible' });
+  }
+});
+
 router.get('/filters', async (req, res) => {
   try {
     const isCommercial = req.user.role === 'commercial';

@@ -90,7 +90,7 @@ export const api = {
     statuts: string[];
     banques: string[];
   }>('/erp/filters'),
-  getCalendrier: () => request<any[]>('/dossiers/calendrier'),
+  getCalendrier: () => request<any[]>('/erp/calendrier'),
   createDossier: (data: any) => request<any>('/dossiers', { method: 'POST', body: JSON.stringify(data) }),
   updateDossier: (id: string, data: any) =>
     request<any>(`/dossiers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

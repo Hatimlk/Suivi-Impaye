@@ -95,7 +95,11 @@ router.get('/erp/status', requireRole('admin'), async (_req, res) => {
 router.get('/partenaires', async (_req, res) => {
   try {
     await ensurePartenairesTable();
-    const result = await query('SELECT * FROM partenaires_reference ORDER BY nom');
+    const result = await query(
+      `SELECT * FROM partenaires_reference
+       WHERE source <> 'legacy' AND (source <> 'ERP' OR actif = true)
+       ORDER BY nom`
+    );
     res.json(result.rows);
   } catch (err) {
     console.error('Erreur partenaires:', err);

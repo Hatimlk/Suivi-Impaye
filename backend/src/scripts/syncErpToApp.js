@@ -41,6 +41,16 @@ try {
     ORDER BY v.id
   `);
 
+  const partnersResult = await erpQuery(`
+    SELECT DISTINCT BTRIM(COALESCE(NULLIF(name, ''), NULLIF(display_name, ''))) AS nom
+    FROM res_partner
+    WHERE is_customer IS TRUE
+      AND active IS TRUE
+      AND COALESCE(inactive_client, FALSE) IS FALSE
+      AND COALESCE(NULLIF(BTRIM(name), ''), NULLIF(BTRIM(display_name), '')) IS NOT NULL
+    ORDER BY nom
+  `);
+
   if (result.rows.length === 0) throw new Error('Aucun impaye ERP trouve; synchronisation annulee par securite.');
   const impayes = result.rows.map((row) => ({
     ...row,
@@ -60,7 +70,11 @@ try {
   const response = await fetch(targetUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
-    body: JSON.stringify({ generatedAt: new Date().toISOString(), impayes }),
+    body: JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      impayes,
+      partenaires: partnersResult.rows,
+    }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -69,7 +83,7 @@ try {
       : '';
     throw new Error(`${body.error || `HTTP ${response.status}`}${detail}`);
   }
-  console.log(`Synchronisation terminee: ${body.synchronized} impaye(s).`);
+  console.log(`Synchronisation terminee: ${body.synchronized} impaye(s), ${body.synchronizedPartners || 0} partenaire(s).`);
 } catch (error) {
   console.error(`Echec de synchronisation: ${error.message}`);
   process.exitCode = 1;

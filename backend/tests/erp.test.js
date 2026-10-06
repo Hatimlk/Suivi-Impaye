@@ -128,6 +128,21 @@ describe('GET /api/erp/partenaires', () => {
   });
 });
 
+describe('GET /api/erp/calendrier', () => {
+  it('returns ERP due dates and scopes them to an assigned commercial', async () => {
+    db.query.mockImplementation(fakeQueryImpl([
+      { match: (sql) => sql.includes('ORDER BY v.date_echeance'), respond: () => [snapshotRow({ date_echeance: '2026-10-20' })] },
+    ]));
+    const res = await request(buildApp()).get('/api/erp/calendrier').set('Authorization', authHeader(USERS.commercialA));
+
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ id: 'erp-42', date_echeance: '2026-10-20' });
+    const call = db.query.mock.calls.find(([sql]) => sql.includes('ORDER BY v.date_echeance'));
+    expect(call[0]).toMatch(/WHERE[\s\S]*s\.commercial_id\s*=\s*\$1/);
+    expect(call[1]).toContain(USERS.commercialA.id);
+  });
+});
+
 describe('GET /api/erp/stats', () => {
   it("scopes aggregate stats to the caller's own portfolio for a commercial", async () => {
     await request(buildApp()).get('/api/erp/stats').set('Authorization', authHeader(USERS.commercialA));

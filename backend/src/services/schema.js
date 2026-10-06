@@ -39,6 +39,25 @@ export function ensurePartenairesTable() {
         date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
 
+      ALTER TABLE partenaires_reference
+      ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'manual';
+
+      CREATE TABLE IF NOT EXISTS application_migrations (
+        migration_key VARCHAR(255) PRIMARY KEY,
+        applied_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+      );
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM application_migrations
+          WHERE migration_key = '009_partners_from_erp'
+        ) THEN
+          UPDATE partenaires_reference SET source = 'legacy';
+          INSERT INTO application_migrations (migration_key) VALUES ('009_partners_from_erp');
+        END IF;
+      END $$;
+
       INSERT INTO partenaires_reference (nom)
       SELECT DISTINCT CASE
         WHEN relation = 'CDC' AND POSITION(':' IN nom_tire) > 0

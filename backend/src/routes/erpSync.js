@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { timingSafeEqual } from 'crypto';
 import { getClient } from '../config/db.js';
-import { ensureErpTrackingTables } from '../services/schema.js';
+import { ensureErpTrackingTables, ensurePartenairesTable } from '../services/schema.js';
 import { logAudit } from '../middleware/audit.js';
 import { ipRateLimiter, clientIp } from '../middleware/rateLimiter.js';
 import { erpSyncItemSchema } from '../schemas/validation.js';
 
 const impayesListSchema = z.array(erpSyncItemSchema);
+const partnersListSchema = z.array(z.object({ nom: z.string().trim().min(1).max(255) })).max(5000);
 
 const router = Router();
 
@@ -45,8 +46,14 @@ router.post('/', syncLimiter, async (req, res) => {
     });
   }
   const impayes = parsed.data;
+  const parsedPartners = partnersListSchema.safeParse(req.body.partenaires || []);
+  if (!parsedPartners.success) {
+    return res.status(400).json({ error: 'Donnees partenaires invalides' });
+  }
+  const partenaires = parsedPartners.data;
 
   await ensureErpTrackingTables();
+  await ensurePartenairesTable();
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -80,9 +87,20 @@ router.post('/', syncLimiter, async (req, res) => {
     );
     const ids = impayes.map((row) => row.erp_voucher_id);
     await client.query(`UPDATE erp_impayes_snapshot SET actif = false, synced_at = NOW() WHERE actif = true AND NOT (erp_voucher_id = ANY($1::int[]))`, [ids]);
+    if (partenaires.length > 0) {
+      await client.query(`UPDATE partenaires_reference SET actif = false WHERE source = 'ERP'`);
+      await client.query(
+        `INSERT INTO partenaires_reference (nom, actif, source)
+         SELECT DISTINCT BTRIM(x.nom), true, 'ERP'
+         FROM jsonb_to_recordset($1::jsonb) AS x(nom text)
+         WHERE NULLIF(BTRIM(x.nom), '') IS NOT NULL
+         ON CONFLICT (nom) DO UPDATE SET actif = true, source = 'ERP'`,
+        [JSON.stringify(partenaires)]
+      );
+    }
     await client.query(`UPDATE erp_sync_runs SET status = 'success', completed_at = NOW() WHERE id = $1`, [run.rows[0].id]);
     await client.query('COMMIT');
-    res.json({ status: 'ok', synchronized: ids.length, runId: run.rows[0].id });
+    res.json({ status: 'ok', synchronized: ids.length, synchronizedPartners: partenaires.length, runId: run.rows[0].id });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Synchronisation ERP:', error.message);
