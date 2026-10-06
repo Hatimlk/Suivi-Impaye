@@ -358,7 +358,21 @@ export default function DossiersPage() {
             </Thead>
             <Tbody>
               {dossiers.map((d) => (
-                <Tr key={d.id}>
+                <Tr
+                  key={d.id}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`Ouvrir le dossier ${d.numero_valeur}`}
+                  className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                  onClick={() => navigate(`/dossiers/${d.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/dossiers/${d.id}`);
+                    }
+                  }}
+                >
                   <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
@@ -402,7 +416,10 @@ export default function DossiersPage() {
                   <Td align="center">
                     <div className="flex items-center justify-center gap-1">
                       <button
-                        onClick={() => navigate(`/dossiers/${d.id}`)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(`/dossiers/${d.id}`);
+                        }}
                         className="p-1.5 hover:bg-brand-50 rounded-lg transition text-brand-600"
                         title="Voir le dossier"
                       >
