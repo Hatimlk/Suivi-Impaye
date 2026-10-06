@@ -10,8 +10,14 @@ describe('relation ERP CD/CDC', () => {
     expect(resolveRelation('Société El Amane', 'SOCIETE-EL  AMANE')).toBe('CD');
   });
 
-  it('returns CDC when partner and bearer are different', () => {
-    expect(resolveRelation('BOUGDOUR WOOD', 'BOUGDOUR TIMBRE')).toBe('CDC');
+  it('keeps CD when the names share a distinctive word', () => {
+    expect(resolveRelation('BOUGDOUR WOOD', 'BOUGDOUR TIMBRE')).toBe('CD');
+    expect(resolveRelation('BOUGDOUR WOOD', 'BOUGDOUR WOOD SARL')).toBe('CD');
+  });
+
+  it('returns CDC when the names have no distinctive word in common', () => {
+    expect(resolveRelation('BOUGDOUR WOOD', 'ANCIEN BOIS')).toBe('CDC');
+    expect(resolveRelation('STE NAMIRA SARL', 'ENTREPRISE ATLAS')).toBe('CDC');
   });
 
   it('keeps CD when one party is missing', () => {
