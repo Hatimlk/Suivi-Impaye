@@ -107,6 +107,14 @@ describe('GET /api/erp/impayes/:id', () => {
     expect(res.status).toBe(200);
   });
 
+  it('lets a commercial read an unassigned dossier bearing their ERP commercial name', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_impayes_snapshot'), respond: () => [snapshotRow({ commercial_id: null, erp_commercial_nom: 'COMM A' })] }])
+    );
+    const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
+    expect(res.status).toBe(200);
+  });
+
   it('rejects a malformed id', async () => {
     const res = await request(buildApp()).get('/api/erp/impayes/not-an-id').set('Authorization', authHeader(USERS.admin));
     expect(res.status).toBe(400);
@@ -194,7 +202,7 @@ describe('GET /api/erp/stats', () => {
 describe('PATCH /api/erp/impayes/:id/statut', () => {
   it("blocks a commercial from changing another's ERP dossier status", async () => {
     db.query.mockImplementation(
-      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_dossier_suivi WHERE erp_voucher_id'), respond: () => [{ commercial_id: USERS.commercialB.id }] }])
+      fakeQueryImpl([{ match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialB.id }] }])
     );
     const res = await request(buildApp())
       .patch('/api/erp/impayes/erp-42/statut')
@@ -205,7 +213,7 @@ describe('PATCH /api/erp/impayes/:id/statut', () => {
 
   it('blocks a commercial from changing status on an unassigned ERP dossier', async () => {
     db.query.mockImplementation(
-      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_dossier_suivi WHERE erp_voucher_id'), respond: () => [] }])
+      fakeQueryImpl([{ match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [] }])
     );
     const res = await request(buildApp())
       .patch('/api/erp/impayes/erp-42/statut')
@@ -217,7 +225,7 @@ describe('PATCH /api/erp/impayes/:id/statut', () => {
   it('allows the assigned commercial to change their own ERP dossier status', async () => {
     db.query.mockImplementation(
       fakeQueryImpl([
-        { match: (sql) => sql.includes('FROM erp_dossier_suivi WHERE erp_voucher_id'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
         { match: (sql) => sql.includes('INSERT INTO erp_dossier_suivi (erp_voucher_id, statut)'), respond: () => [{ erp_voucher_id: 42, statut: 'Régularisé - OK' }] },
       ])
     );
@@ -225,6 +233,20 @@ describe('PATCH /api/erp/impayes/:id/statut', () => {
       .patch('/api/erp/impayes/erp-42/statut')
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ statut: 'Régularisé - OK' });
+    expect(res.status).toBe(200);
+  });
+
+  it('allows the ERP-named commercial to change an unassigned dossier status', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: null, erp_commercial_nom: 'COMM A' }] },
+        { match: (sql) => sql.includes('INSERT INTO erp_dossier_suivi (erp_voucher_id, statut)'), respond: () => [{ erp_voucher_id: 42, statut: 'Contentieux' }] },
+      ])
+    );
+    const res = await request(buildApp())
+      .patch('/api/erp/impayes/erp-42/statut')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .send({ statut: 'Contentieux' });
     expect(res.status).toBe(200);
   });
 
@@ -240,7 +262,7 @@ describe('PATCH /api/erp/impayes/:id/statut', () => {
 describe('POST /api/erp/impayes/:id/actions', () => {
   it("blocks a commercial from commenting on another's ERP dossier", async () => {
     db.query.mockImplementation(
-      fakeQueryImpl([{ match: (sql) => sql.includes('FROM erp_dossier_suivi WHERE erp_voucher_id'), respond: () => [{ commercial_id: USERS.commercialB.id }] }])
+      fakeQueryImpl([{ match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialB.id }] }])
     );
     const res = await request(buildApp())
       .post('/api/erp/impayes/erp-42/actions')
@@ -252,7 +274,7 @@ describe('POST /api/erp/impayes/:id/actions', () => {
   it('allows the assigned commercial to comment on their own ERP dossier', async () => {
     db.query.mockImplementation(
       fakeQueryImpl([
-        { match: (sql) => sql.includes('FROM erp_dossier_suivi WHERE erp_voucher_id'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
         { match: (sql) => sql.includes('INSERT INTO erp_actions'), respond: () => [{ id: 'a1', erp_voucher_id: 42 }] },
         { match: (sql) => sql.includes('SELECT a.*'), respond: () => [{ id: 'a1', erp_voucher_id: 42, auteur_nom: 'CommA' }] },
       ])

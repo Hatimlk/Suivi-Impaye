@@ -22,6 +22,27 @@ function parseErpId(value) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function normalizeCommercialName(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function normalizedCommercialSql(expression) {
+  return `REGEXP_REPLACE(TRANSLATE(UPPER(COALESCE(${expression}, '')), 'Ç', 'C'), '[^A-Z0-9]', '', 'g')`;
+}
+
+function addCommercialScope(conditions, params, user) {
+  if (user?.role !== 'commercial') return;
+  params.push(user.id);
+  const userIdParam = `$${params.length}`;
+  params.push(normalizeCommercialName(user.nom));
+  const userNameParam = `$${params.length}`;
+  conditions.push(`(s.commercial_id = ${userIdParam} OR (s.commercial_id IS NULL AND ${normalizedCommercialSql('v.erp_commercial_nom')} = ${userNameParam}))`);
+}
+
 const selectDossier = `
   SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
          s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
@@ -49,6 +70,7 @@ function mapDossier(row) {
     observations: row.suivi_observations || '',
     commercial_id: row.commercial_id || null,
     commercial_nom: row.suivi_commercial_nom || row.erp_commercial_nom || null,
+    erp_commercial_nom: row.erp_commercial_nom || null,
     date_derniere_action: row.date_derniere_action || null,
     date_creation: row.suivi_date_creation || row.synced_at,
     date_derniere_modification: row.date_derniere_modification || row.synced_at,
@@ -88,7 +110,7 @@ function buildFilters(requestQuery, user) {
     conditions.push(sql.split('?').join(`$${params.length}`));
   };
   // Un commercial ne doit voir que les dossiers qui lui sont affectés
-  if (user?.role === 'commercial') add('s.commercial_id = ?', user.id);
+  addCommercialScope(conditions, params, user);
   if (requestQuery.search) add('(v.nom_tire ILIKE ? OR v.numero_valeur ILIKE ? OR v.banque ILIKE ?)', `%${requestQuery.search}%`);
   if (requestQuery.nom_tire) add('v.nom_tire = ?', requestQuery.nom_tire);
   if (requestQuery.banque) add('v.banque = ?', requestQuery.banque);
@@ -136,20 +158,24 @@ router.get('/impayes/:id', async (req, res) => {
   const result = await query(`${selectDossier} WHERE v.erp_voucher_id = $1 AND v.actif = true`, [id]);
   if (!result.rows[0]) return res.status(404).json({ error: 'Impaye ERP introuvable' });
   const dossier = mapDossier(result.rows[0]);
-  if (req.user.role === 'commercial' && dossier.commercial_id !== req.user.id) return res.status(403).json({ error: 'Acces refuse' });
+  if (req.user.role === 'commercial') {
+    const erpOwner = normalizeCommercialName(dossier.erp_commercial_nom);
+    const ownsDossier = dossier.commercial_id
+      ? dossier.commercial_id === req.user.id
+      : erpOwner && erpOwner === normalizeCommercialName(req.user.nom);
+    if (!ownsDossier) return res.status(403).json({ error: 'Acces refuse' });
+  }
   const actions = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.erp_voucher_id = $1 ORDER BY a.date_action DESC`, [id]);
   res.json({ ...dossier, actions: actions.rows });
 });
 
 router.get('/partenaires', async (req, res) => {
-  const isCommercial = req.user.role === 'commercial';
-  const params = isCommercial ? [req.user.id] : [];
-  const filterClause = isCommercial ? 'AND s.commercial_id = $1' : '';
+  const { where, params } = buildFilters({}, req.user);
   const result = await query(
     `SELECT DISTINCT v.nom_tire AS nom
      FROM erp_impayes_snapshot v
      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
-     WHERE v.actif = true AND v.nom_tire <> '' ${filterClause}
+     ${where} AND v.nom_tire <> ''
      ORDER BY nom`,
     params
   );
@@ -173,13 +199,13 @@ router.get('/calendrier', async (req, res) => {
 
 router.get('/filters', async (req, res) => {
   try {
-    const isCommercial = req.user.role === 'commercial';
-    const params = isCommercial ? [req.user.id] : [];
-    const roleFilter = isCommercial ? 'AND s.commercial_id = $1' : '';
+    const conditions = ['v.actif = true'];
+    const params = [];
+    addCommercialScope(conditions, params, req.user);
     const joins = `FROM erp_impayes_snapshot v
       LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
       LEFT JOIN users u ON u.id = s.commercial_id
-      WHERE v.actif = true ${roleFilter}`;
+      WHERE ${conditions.join(' AND ')}`;
     const [partners, commercials, statuses, banks] = await Promise.all([
       query(`SELECT DISTINCT v.nom_tire AS value ${joins} AND NULLIF(BTRIM(v.nom_tire), '') IS NOT NULL ORDER BY value`, params),
       query(`SELECT DISTINCT COALESCE(NULLIF(BTRIM(u.nom), ''), NULLIF(BTRIM(v.erp_commercial_nom), '')) AS value ${joins} ORDER BY value NULLS LAST`, params),
@@ -206,8 +232,10 @@ router.get('/filters', async (req, res) => {
 router.get('/stats', async (req, res) => {
   try {
     const isCommercial = req.user.role === 'commercial';
-    const params = isCommercial ? [req.user.id] : [];
-    const filterClause = isCommercial ? 'AND s.commercial_id = $1' : '';
+    const params = isCommercial ? [req.user.id, normalizeCommercialName(req.user.nom)] : [];
+    const filterClause = isCommercial
+      ? `AND (s.commercial_id = $1 OR (s.commercial_id IS NULL AND ${normalizedCommercialSql('v.erp_commercial_nom')} = $2))`
+      : '';
     const base = `FROM erp_impayes_snapshot v
       LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
       LEFT JOIN users u ON u.id = s.commercial_id
@@ -273,9 +301,19 @@ router.get('/stats', async (req, res) => {
 
 async function assertErpOwnership(req, res, id) {
   if (req.user.role !== 'commercial') return true;
-  const assign = await query('SELECT commercial_id FROM erp_dossier_suivi WHERE erp_voucher_id = $1', [id]);
+  const assign = await query(
+    `SELECT s.commercial_id, v.erp_commercial_nom
+     FROM erp_impayes_snapshot v
+     LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+     WHERE v.erp_voucher_id = $1 AND v.actif = true`,
+    [id]
+  );
   const ownerId = assign.rows[0]?.commercial_id || null;
-  if (ownerId !== req.user.id) {
+  const erpOwner = normalizeCommercialName(assign.rows[0]?.erp_commercial_nom);
+  const ownsDossier = ownerId
+    ? ownerId === req.user.id
+    : erpOwner && erpOwner === normalizeCommercialName(req.user.nom);
+  if (!ownsDossier) {
     res.status(403).json({ error: 'Accès refusé' });
     return false;
   }
