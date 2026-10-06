@@ -19,9 +19,9 @@ try {
   const result = await erpQuery(`
     SELECT
       v.id AS erp_voucher_id,
-      v.impaye_date AS date_saisie,
-      v.date AS date_facture,
-      COALESCE(v.date_due, v.check_end_date, v.boe_end_date) AS date_echeance,
+      TO_CHAR(v.impaye_date, 'YYYY-MM-DD') AS date_saisie,
+      TO_CHAR(v.date, 'YYYY-MM-DD') AS date_facture,
+      TO_CHAR(COALESCE(v.date_due, v.check_end_date, v.boe_end_date), 'YYYY-MM-DD') AS date_echeance,
       COALESCE(v.amount, 0) AS montant,
       CASE WHEN v.check_journal THEN 'CHQ' WHEN v.boe_journal THEN 'LCN' ELSE 'CHQ' END AS type_valeur,
       COALESCE(NULLIF(v.number, ''), NULLIF(v.reference, ''), v.id::text) AS numero_valeur,
