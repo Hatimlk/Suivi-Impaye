@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatMontant, formatDate, formatDateTime, joursDepuis, getPorteur } from '../utils';
 import type { Dossier, Action } from '../types';
-import { Card, Button, Select, Textarea, Input, Modal, StatusBadge, Badge, PageSpinner, EmptyState } from '../components/ui';
+import { Card, Button, Select, Textarea, Input, Modal, StatusBadge, Badge, PageSpinner } from '../components/ui';
 import {
   ArrowLeft, Send, Calendar, Building2, Hash, User, FileText,
   Clock, Printer, Trash2, MessageSquare, Pencil,
@@ -154,14 +154,14 @@ export default function DossierDetailPage() {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl mx-auto">
+    <div className="mx-auto max-w-6xl space-y-5 pb-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 no-print">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between no-print">
         <button
           onClick={() => navigate('/dossiers')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition text-sm"
+          className="group inline-flex w-fit items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-white hover:text-gray-950"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
           Retour à la liste
         </button>
         <div className="flex items-center gap-2">
@@ -173,14 +173,18 @@ export default function DossierDetailPage() {
       </div>
 
       {/* Fiche dossier */}
-      <Card padding="none" className="overflow-hidden">
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{dossier.nom_tire}</h1>
-              <p className="text-sm text-gray-500 mt-1">N° {dossier.numero_valeur}</p>
+      <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+        <div className="border-b border-gray-200 bg-gradient-to-r from-slate-50 via-white to-brand-50/40 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">Dossier impayé</p>
+              <h1 className="truncate text-xl font-bold tracking-tight text-gray-950 sm:text-2xl">{dossier.nom_tire}</h1>
+              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 shadow-xs">
+                <Hash className="h-3.5 w-3.5 text-gray-400" />
+                <span className="font-mono">{dossier.numero_valeur}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               <StatusBadge statut={dossier.statut} />
               {user?.role !== 'lecture_seule' && (
                 <Button variant="outline" size="sm" onClick={() => setShowStatutChange(!showStatutChange)}>
@@ -190,7 +194,7 @@ export default function DossierDetailPage() {
             </div>
           </div>
           {showStatutChange && (
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-3 rounded-xl border border-brand-100 bg-white/90 p-3 shadow-xs">
               <div className="flex items-center gap-2">
                 <div className="flex-1">
                   <Select value={newStatut} onChange={(e) => setNewStatut(e.target.value)}>
@@ -214,7 +218,7 @@ export default function DossierDetailPage() {
         </div>
 
         {/* Infos */}
-        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-4 gap-4 p-3 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 p-4 min-[420px]:grid-cols-2 sm:p-5 lg:grid-cols-5">
           <InfoField icon={Calendar} label="Date facture" value={dossier.date_facture ? formatDate(dossier.date_facture) : '-'} />
           <InfoField icon={Calendar} label="Échéance" value={dossier.date_echeance ? formatDate(dossier.date_echeance) : '-'} />
           <InfoField icon={Building2} label="Banque" value={dossier.banque} />
@@ -245,19 +249,27 @@ export default function DossierDetailPage() {
 
         {dossier.observations && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-gray-500 mb-1">Observation</p>
-            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{dossier.observations}</p>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Observation</p>
+            <p className="rounded-xl border border-gray-100 bg-gray-50/80 p-3 text-sm leading-6 text-gray-700">{dossier.observations}</p>
           </div>
         )}
       </Card>
 
       {/* Actions */}
       {user?.role !== 'lecture_seule' && (
-        <Card className="no-print">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Ajouter une action</h2>
-          <form onSubmit={handleAddAction} className="space-y-3">
-            <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select value={actionType} onChange={(e) => setActionType(e.target.value)}>
+        <Card className="no-print border-gray-200/80 shadow-sm">
+          <div className="mb-5 flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+              <Send className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-gray-950">Ajouter une action</h2>
+              <p className="mt-0.5 text-sm text-gray-500">Consignez le suivi et programmez une date de rappel si nécessaire.</p>
+            </div>
+          </div>
+          <form onSubmit={handleAddAction} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Select label="Type d'action" value={actionType} onChange={(e) => setActionType(e.target.value)}>
                 <option value="relance">Relance</option>
                 <option value="appel">Appel</option>
                 <option value="email">Email</option>
@@ -274,35 +286,45 @@ export default function DossierDetailPage() {
               />
             </div>
             <Textarea
+              label="Compte rendu"
               value={actionContent}
               onChange={(e) => setActionContent(e.target.value)}
-              rows={3}
+              rows={4}
               placeholder="Décrivez l'action effectuée..."
               required
             />
-            <Button type="submit" loading={actionLoading} disabled={!actionContent.trim()}>
-              <Send className="w-4 h-4" />
-              {actionLoading ? 'Envoi...' : "Enregistrer l'action"}
-            </Button>
+            <div className="flex justify-end border-t border-gray-100 pt-4">
+              <Button type="submit" loading={actionLoading} disabled={!actionContent.trim()}>
+                <Send className="w-4 h-4" />
+                {actionLoading ? 'Envoi...' : "Enregistrer l'action"}
+              </Button>
+            </div>
           </form>
         </Card>
       )}
 
       {/* Historique des actions */}
-      <Card padding="none" className="overflow-hidden">
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-sm font-semibold text-gray-900">
-            Historique des actions ({dossier.actions?.length || 0})
+      <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/70 px-5 py-4">
+          <h2 className="font-semibold text-gray-950">
+            Historique des actions
           </h2>
+          <Badge tone="neutral">{dossier.actions?.length || 0}</Badge>
         </div>
         {!dossier.actions || dossier.actions.length === 0 ? (
-          <EmptyState icon={<MessageSquare className="w-6 h-6" />} title="Aucune action enregistrée" />
+          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            <p className="font-medium text-gray-800">Aucune action enregistrée</p>
+            <p className="mt-1 text-sm text-gray-500">La première action apparaîtra ici.</p>
+          </div>
         ) : (
           <div className="divide-y divide-gray-100">
             {dossier.actions.map((action: Action) => (
-              <div key={action.id} className="p-4 hover:bg-gray-50 transition">
+              <div key={action.id} className="p-5 transition hover:bg-slate-50/70">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 text-xs font-bold flex-shrink-0">
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 text-xs font-bold text-brand-700">
                     {action.auteur_nom?.charAt(0) || '?'}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -316,7 +338,7 @@ export default function DossierDetailPage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{action.contenu}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{action.contenu}</p>
                   </div>
                 </div>
               </div>
@@ -440,11 +462,13 @@ function InfoField({
   bold?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-2">
-      <Icon className="w-4 h-4 text-gray-400 mt-0.5" />
-      <div>
-        <p className="text-xs text-gray-500">{label}</p>
-        <p className={bold ? 'text-sm font-bold text-gray-900' : 'text-sm font-medium text-gray-900'}>{value}</p>
+    <div className="flex min-h-[72px] items-start gap-3 rounded-xl border border-gray-100 bg-slate-50/60 p-3 transition-colors hover:border-gray-200 hover:bg-white">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-gray-400 shadow-xs ring-1 ring-gray-100">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+        <p className={bold ? 'mt-0.5 break-words text-sm font-bold text-gray-950' : 'mt-0.5 break-words text-sm font-semibold text-gray-800'}>{value}</p>
       </div>
     </div>
   );
