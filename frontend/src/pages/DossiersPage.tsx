@@ -10,6 +10,7 @@ import {
 } from '../components/ui';
 import {
   Search, Plus, Filter, Download, Eye, Pencil, X, ArrowUpDown, FolderOpen, Upload,
+  Database, WalletCards, CircleDollarSign, AlertTriangle,
 } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -27,6 +28,7 @@ export default function DossiersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [sortOrder, setSortOrder] = useState<'DESC' | 'ASC'>('DESC');
@@ -84,6 +86,14 @@ export default function DossiersPage() {
   }, [page, search, filters, sortOrder]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const openNewDossier = () => {
     setEditDossier(null);
@@ -193,26 +203,41 @@ export default function DossiersPage() {
   const clearFilters = () => {
     setFilters({});
     setSearch('');
+    setSearchInput('');
     setPage(1);
   };
 
   const hasFilters = Object.keys(filters).length > 0 || search.length > 0;
+  const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
+  const visibleAmount = dossiers.reduce((sum, dossier) => sum + Number(dossier.montant || 0), 0);
+  const urgentCount = dossiers.filter((dossier) => joursDepuis(dossier.date_echeance || dossier.date_saisie) >= 30).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 pb-8">
       <PageHeader
         title="Dossiers Impayés"
         subtitle={`${total} dossier(s) au total`}
-        actions={<Badge tone="info">Source OpenPROD</Badge>}
+        actions={(
+          <Badge tone="info" className="gap-1.5 px-3 py-1.5">
+            <Database className="h-3.5 w-3.5" />
+            Source OpenPROD
+          </Badge>
+        )}
       />
 
-      <Card padding="sm">
-        <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <SummaryCard icon={WalletCards} label="Dossiers actifs" value={String(total)} tone="brand" />
+        <SummaryCard icon={CircleDollarSign} label="Montant sur cette page" value={formatMontant(visibleAmount)} tone="success" />
+        <SummaryCard icon={AlertTriangle} label="Retards 30j+ sur cette page" value={String(urgentCount)} tone="danger" />
+      </div>
+
+      <Card padding="sm" className="border-gray-200/80 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="flex-1">
             <Input
               name="search"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Rechercher par partenaire, numéro, banque..."
               icon={<Search className="w-4 h-4" />}
             />
@@ -224,6 +249,7 @@ export default function DossiersPage() {
           >
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Filtres</span>
+            {activeFilterCount > 0 && <Badge tone="brand">{activeFilterCount}</Badge>}
           </Button>
           <Button
             variant="outline"
@@ -332,14 +358,27 @@ export default function DossiersPage() {
         )}
       </Card>
 
-      <Card padding="none" className="overflow-hidden">
+      <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-gray-50/70 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-950">Résultats</h2>
+            <p className="text-xs text-gray-500">
+              {total > 0 ? `${(page - 1) * 15 + 1}–${Math.min(page * 15, total)} sur ${total}` : 'Aucun dossier'}
+            </p>
+          </div>
+          {hasFilters && (
+            <button onClick={clearFilters} className="text-xs font-medium text-brand-600 hover:text-brand-700">
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
         {loading ? (
           <PageSpinner label="Chargement des dossiers..." />
         ) : dossiers.length === 0 ? (
           <EmptyState icon={<FolderOpen className="w-6 h-6" />} title="Aucun dossier trouvé" />
         ) : (
           <Table>
-            <Thead>
+            <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
               <tr>
                 <Th>Date de facture</Th>
                 <Th>Banque</Th>
@@ -347,9 +386,9 @@ export default function DossiersPage() {
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
-                <Th>Porteur</Th>
-                <Th>Observation</Th>
-                <Th>Relation</Th>
+                <Th className="hidden xl:table-cell">Porteur</Th>
+                <Th className="hidden 2xl:table-cell">Observation</Th>
+                <Th className="hidden xl:table-cell">Relation</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>
                 <Th align="center">Jours</Th>
@@ -363,7 +402,7 @@ export default function DossiersPage() {
                   role="link"
                   tabIndex={0}
                   aria-label={`Ouvrir le dossier ${d.numero_valeur}`}
-                  className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                  className="group cursor-pointer focus:outline-none hover:bg-brand-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
                   onClick={() => navigate(`/dossiers/${d.id}`)}
                   onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) return;
@@ -386,17 +425,17 @@ export default function DossiersPage() {
                     </Badge>
                   </Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
-                  <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
+                  <Td className="max-w-[220px] truncate font-semibold text-gray-950 group-hover:text-brand-700">{d.nom_tire}</Td>
                   <Td
-                    className="text-gray-700 font-medium max-w-[160px] truncate"
+                    className="hidden max-w-[180px] truncate font-medium text-gray-700 xl:table-cell"
                     title={d.porteur || getPorteur(d.nom_tire, d.relation)}
                   >
                     {d.porteur || getPorteur(d.nom_tire, d.relation)}
                   </Td>
-                  <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
+                  <Td className="hidden max-w-[260px] truncate text-gray-600 2xl:table-cell" title={d.observations || ''}>
                     {d.observations?.split(' | Date facture :')[0] || ''}
                   </Td>
-                  <Td className="text-gray-600">{d.relation === 'CD' ? 'CD' : 'CDC'}</Td>
+                  <Td className="hidden text-gray-600 xl:table-cell">{d.relation === 'CD' ? 'CD' : 'CDC'}</Td>
                   <Td className="text-gray-600 max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
                   <Td><StatusBadge statut={d.statut} /></Td>
                   <Td align="center">
@@ -420,7 +459,7 @@ export default function DossiersPage() {
                           event.stopPropagation();
                           navigate(`/dossiers/${d.id}`);
                         }}
-                        className="p-1.5 hover:bg-brand-50 rounded-lg transition text-brand-600"
+                        className="rounded-lg border border-transparent p-1.5 text-brand-600 transition hover:border-brand-100 hover:bg-white hover:shadow-xs"
                         title="Voir le dossier"
                       >
                         <Eye className="w-4 h-4" />
@@ -589,5 +628,35 @@ export default function DossiersPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof Database;
+  label: string;
+  value: string;
+  tone: 'brand' | 'success' | 'danger';
+}) {
+  const tones = {
+    brand: 'bg-brand-50 text-brand-600 ring-brand-100',
+    success: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+    danger: 'bg-red-50 text-red-600 ring-red-100',
+  };
+
+  return (
+    <Card className="flex items-center gap-3 border-gray-200/80 py-4 shadow-sm">
+      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1', tones[tone])}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-lg font-bold tracking-tight text-gray-950">{value}</p>
+      </div>
+    </Card>
   );
 }

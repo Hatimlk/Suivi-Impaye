@@ -19,8 +19,8 @@ export function Table({ className, children, ...props }: HTMLAttributes<HTMLTabl
   );
 }
 
-export function Thead({ children }: { children: React.ReactNode }) {
-  return <thead className="bg-gray-50 border-b border-gray-200">{children}</thead>;
+export function Thead({ className, children }: { className?: string; children: React.ReactNode }) {
+  return <thead className={cn('bg-gray-50 border-b border-gray-200', className)}>{children}</thead>;
 }
 
 export function Tbody({ children }: { children: React.ReactNode }) {
