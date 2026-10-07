@@ -101,12 +101,12 @@ export const api = {
   deleteDossier: (id: string) => request<any>(`/dossiers/${id}`, { method: 'DELETE' }),
 
   // Actions
-  addAction: (dossierId: string, data: { contenu: string; type_action?: string }) =>
+  addAction: (dossierId: string, data: { contenu: string; type_action?: string; date_rappel?: string | null }) =>
     request<any>(`/erp/impayes/${dossierId}/actions`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Stats & Alerts
   getStats: () => request<any>('/erp/stats'),
-  getAlerts: () => request<any>('/dossiers/alerts'),
+  getAlerts: () => request<any>('/erp/alerts'),
 
   // Admin
   getUsers: () => request<any[]>('/admin/users'),

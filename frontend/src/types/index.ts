@@ -50,6 +50,7 @@ export interface Action {
   auteur_nom: string | null;
   contenu: string;
   type_action: string;
+  date_rappel?: string | null;
   date_creation: string;
 }
 
@@ -84,6 +85,7 @@ export interface DashboardStats {
 }
 
 export interface Alerts {
+  rappels: (Dossier & { action_id: string; action_contenu: string; action_type: string; date_rappel: string; jours_retard: number })[];
   dormants: (Dossier & { jours_sans_action: number })[];
   contentieux: Dossier[];
 }

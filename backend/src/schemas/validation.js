@@ -73,6 +73,7 @@ export const updateDossierSchema = z.object({
 export const createActionSchema = z.object({
   contenu: z.string().min(1, 'Le contenu de l\'action est requis').max(5000),
   type_action: z.string().max(100).optional().default('relance'),
+  date_rappel: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date de rappel invalide').nullable().optional(),
 });
 
 export const createBanqueSchema = z.object({

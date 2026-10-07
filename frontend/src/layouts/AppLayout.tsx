@@ -21,9 +21,9 @@ import { useState } from 'react';
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { dormants, contentieux } = useAlerts();
+  const { rappels, dormants, contentieux } = useAlerts();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const alertCount = dormants.length + contentieux.length;
+  const alertCount = rappels.length + dormants.length + contentieux.length;
 
   const handleLogout = async () => {
     await logout();

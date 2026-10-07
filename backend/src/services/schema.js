@@ -158,7 +158,9 @@ export function ensureErpTrackingTables() {
         date_action TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
         date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE erp_actions ADD COLUMN IF NOT EXISTS date_rappel DATE;
       CREATE INDEX IF NOT EXISTS idx_erp_actions_voucher ON erp_actions(erp_voucher_id);
+      CREATE INDEX IF NOT EXISTS idx_erp_actions_date_rappel ON erp_actions(date_rappel) WHERE date_rappel IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_erp_suivi_commercial ON erp_dossier_suivi(commercial_id);
 
       INSERT INTO statuts_reference (libelle, ordre, couleur) VALUES

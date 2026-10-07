@@ -2,24 +2,30 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 
 export function useAlerts() {
+  const [rappels, setRappels] = useState<any[]>([]);
   const [dormants, setDormants] = useState<any[]>([]);
   const [contentieux, setContentieux] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await api.getAlerts();
+      setRappels(data.rappels || []);
       setDormants(data.dormants || []);
       setContentieux(data.contentieux || []);
     } catch (err) {
       console.error('Erreur chargement alertes:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    const timer = window.setInterval(() => refresh(true), 60_000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 
-  return { dormants, contentieux, loading, refresh };
+  return { rappels, dormants, contentieux, loading, refresh };
 }

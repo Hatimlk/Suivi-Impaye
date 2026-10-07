@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, RefreshCw, Eye } from 'lucide-react';
+import { AlertTriangle, Clock, RefreshCw, Eye, CalendarClock } from 'lucide-react';
 import { useAlerts } from '../hooks/useAlerts';
 import { formatMontant, cn } from '../utils';
 import type { SemanticTone } from '../utils';
@@ -16,7 +16,7 @@ function joursTone(jours: number): SemanticTone {
 }
 
 export default function AlertsPage() {
-  const { dormants, contentieux, loading, refresh } = useAlerts();
+  const { rappels, dormants, contentieux, loading, refresh } = useAlerts();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +39,33 @@ export default function AlertsPage() {
 
       {!loading && (
         <div className="grid gap-6 lg:grid-cols-2">
+          <Card padding="none" className="overflow-hidden lg:col-span-2">
+            <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
+              <CalendarClock className="h-5 w-5 text-danger-600" />
+              <h2 className="text-lg font-semibold text-gray-900">Délais d’action dépassés</h2>
+              <Badge tone="danger">{rappels.length}</Badge>
+            </div>
+            <p className="px-6 pt-2 text-xs text-gray-500">Actions dont la date limite est dépassée</p>
+            {rappels.length === 0 ? (
+              <EmptyState icon={<CalendarClock className="h-6 w-6 text-success-600" />} title="Aucun délai dépassé" />
+            ) : (
+              <Table>
+                <Thead><tr><Th>Partenaire</Th><Th>Action</Th><Th>Date limite</Th><Th align="center">Retard</Th><Th>Commercial</Th><Th></Th></tr></Thead>
+                <Tbody>
+                  {rappels.map((d) => (
+                    <Tr key={d.action_id}>
+                      <Td className="font-medium text-gray-900">{d.nom_tire}</Td>
+                      <Td className="max-w-[320px] truncate" title={d.action_contenu}>{d.action_contenu}</Td>
+                      <Td className="whitespace-nowrap">{new Date(d.date_rappel).toLocaleDateString('fr-FR')}</Td>
+                      <Td align="center"><Badge tone="danger">{d.jours_retard}j</Badge></Td>
+                      <Td>{d.commercial_nom || '-'}</Td>
+                      <Td><Button variant="secondary" size="sm" onClick={() => navigate(`/dossiers/${d.id}`)}><Eye className="h-3.5 w-3.5" />Voir</Button></Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            )}
+          </Card>
           <Card padding="none" className="overflow-hidden">
             <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
               <Clock className="h-5 w-5 text-warning-600" />

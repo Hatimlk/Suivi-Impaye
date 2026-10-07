@@ -197,6 +197,54 @@ router.get('/calendrier', async (req, res) => {
   }
 });
 
+router.get('/alerts', async (req, res) => {
+  try {
+    const { where, params } = buildFilters({}, req.user);
+    const base = `FROM erp_impayes_snapshot v
+      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = v.erp_voucher_id
+      LEFT JOIN users u ON u.id = s.commercial_id`;
+    const [rappels, dormants, contentieux] = await Promise.all([
+      query(`SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
+          s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
+          s.date_derniere_modification, u.nom AS suivi_commercial_nom,
+          a.id AS action_id, a.contenu AS action_contenu, a.type_action AS action_type,
+          a.date_rappel, (CURRENT_DATE - a.date_rappel)::int AS jours_retard
+        ${base}
+        JOIN erp_actions a ON a.erp_voucher_id = v.erp_voucher_id
+        ${where} AND a.date_rappel < CURRENT_DATE
+        ORDER BY a.date_rappel, v.nom_tire`, params),
+      query(`SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
+          s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
+          s.date_derniere_modification, u.nom AS suivi_commercial_nom,
+          FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.date_derniere_action, v.synced_at))) / 86400)::int AS jours_sans_action
+        ${base} ${where}
+          AND COALESCE(s.date_derniere_action, v.synced_at) < NOW() - INTERVAL '7 days'
+        ORDER BY COALESCE(s.date_derniere_action, v.synced_at)`, params),
+      query(`SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
+          s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
+          s.date_derniere_modification, u.nom AS suivi_commercial_nom
+        ${base} ${where}
+          AND COALESCE(s.statut, 'Attente retour du client') IN ('Contentieux', 'Pré-contentieux')
+        ORDER BY v.montant DESC`, params),
+    ]);
+    res.json({
+      rappels: rappels.rows.map((row) => ({
+        ...mapDossier(row),
+        action_id: row.action_id,
+        action_contenu: row.action_contenu,
+        action_type: row.action_type,
+        date_rappel: row.date_rappel,
+        jours_retard: Number(row.jours_retard || 0),
+      })),
+      dormants: dormants.rows.map((row) => ({ ...mapDossier(row), jours_sans_action: Number(row.jours_sans_action || 0) })),
+      contentieux: contentieux.rows.map(mapDossier),
+    });
+  } catch (error) {
+    console.error('Erreur alertes ERP:', error.message);
+    res.status(503).json({ error: 'Alertes ERP indisponibles' });
+  }
+});
+
 router.get('/filters', async (req, res) => {
   try {
     const conditions = ['v.actif = true'];
@@ -337,7 +385,7 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   if (req.user.role === 'lecture_seule') return res.status(403).json({ error: 'Lecture seule' });
   if (!(await assertErpOwnership(req, res, id))) return;
   await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id) VALUES ($1) ON CONFLICT DO NOTHING`, [id]);
-  const result = await query(`INSERT INTO erp_actions (erp_voucher_id, auteur_id, contenu, type_action) VALUES ($1, $2, $3, $4) RETURNING *`, [id, req.user.id, req.validated.contenu, req.validated.type_action]);
+  const result = await query(`INSERT INTO erp_actions (erp_voucher_id, auteur_id, contenu, type_action, date_rappel) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [id, req.user.id, req.validated.contenu, req.validated.type_action, req.validated.date_rappel || null]);
   await query(`UPDATE erp_dossier_suivi SET date_derniere_action = NOW(), date_derniere_modification = NOW() WHERE erp_voucher_id = $1`, [id]);
   await logAudit(req.user.id, null, 'erp_action', { erp_voucher_id: id, action_id: result.rows[0].id });
   const action = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.id = $1`, [result.rows[0].id]);

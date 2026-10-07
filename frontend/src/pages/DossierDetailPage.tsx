@@ -19,6 +19,7 @@ export default function DossierDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionContent, setActionContent] = useState('');
   const [actionType, setActionType] = useState('relance');
+  const [actionDeadline, setActionDeadline] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [newStatut, setNewStatut] = useState('');
   const [showStatutChange, setShowStatutChange] = useState(false);
@@ -102,9 +103,10 @@ export default function DossierDetailPage() {
     if (!actionContent.trim()) return;
     try {
       setActionLoading(true);
-      await api.addAction(id!, { contenu: actionContent, type_action: actionType });
+      await api.addAction(id!, { contenu: actionContent, type_action: actionType, date_rappel: actionDeadline || null });
       setActionContent('');
       setActionType('relance');
+      setActionDeadline('');
       await loadDossier();
     } catch (err: any) {
       alert(err.message || 'Erreur');
@@ -254,7 +256,7 @@ export default function DossierDetailPage() {
         <Card className="no-print">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Ajouter une action</h2>
           <form onSubmit={handleAddAction} className="space-y-3">
-            <div className="max-w-xs">
+            <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
               <Select value={actionType} onChange={(e) => setActionType(e.target.value)}>
                 <option value="relance">Relance</option>
                 <option value="appel">Appel</option>
@@ -263,6 +265,13 @@ export default function DossierDetailPage() {
                 <option value="note">Note interne</option>
                 <option value="autre">Autre</option>
               </Select>
+              <Input
+                label="Date limite (optionnelle)"
+                type="date"
+                min={new Date().toISOString().slice(0, 10)}
+                value={actionDeadline}
+                onChange={(e) => setActionDeadline(e.target.value)}
+              />
             </div>
             <Textarea
               value={actionContent}
@@ -301,6 +310,11 @@ export default function DossierDetailPage() {
                       <span className="text-sm font-medium text-gray-900">{action.auteur_nom || 'Inconnu'}</span>
                       <Badge tone="neutral" pill={false}>{action.type_action}</Badge>
                       <span className="text-xs text-gray-400">{formatDateTime(action.date_action)}</span>
+                      {action.date_rappel && (
+                        <Badge tone={new Date(action.date_rappel) < new Date(new Date().toISOString().slice(0, 10)) ? 'danger' : 'warning'} pill={false}>
+                          Rappel : {formatDate(action.date_rappel)}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{action.contenu}</p>
                   </div>

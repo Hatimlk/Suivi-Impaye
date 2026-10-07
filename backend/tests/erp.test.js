@@ -208,6 +208,31 @@ describe('GET /api/erp/stats', () => {
   });
 });
 
+describe('GET /api/erp/alerts', () => {
+  it('returns overdue action deadlines and scopes them to the connected commercial', async () => {
+    db.query.mockImplementation(fakeQueryImpl([
+      {
+        match: (sql) => sql.includes('a.date_rappel < CURRENT_DATE'),
+        respond: () => [snapshotRow({
+          action_id: 'a1',
+          action_contenu: 'Rappeler le client',
+          action_type: 'relance',
+          date_rappel: '2026-10-06',
+          jours_retard: 1,
+        })],
+      },
+    ]));
+
+    const res = await request(buildApp()).get('/api/erp/alerts').set('Authorization', authHeader(USERS.commercialA));
+
+    expect(res.status).toBe(200);
+    expect(res.body.rappels[0]).toMatchObject({ id: 'erp-42', action_id: 'a1', date_rappel: '2026-10-06', jours_retard: 1 });
+    const call = db.query.mock.calls.find(([sql]) => sql.includes('a.date_rappel < CURRENT_DATE'));
+    expect(call[0]).toContain('REGEXP_REPLACE');
+    expect(call[1]).toContain(USERS.commercialA.id);
+  });
+});
+
 describe('PATCH /api/erp/impayes/:id/statut', () => {
   it("blocks a commercial from changing another's ERP dossier status", async () => {
     db.query.mockImplementation(
@@ -293,6 +318,24 @@ describe('POST /api/erp/impayes/:id/actions', () => {
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ contenu: 'hello' });
     expect(res.status).toBe(201);
+  });
+
+  it('stores an optional calendar deadline with the action', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('INSERT INTO erp_actions'), respond: () => [{ id: 'a1', erp_voucher_id: 42 }] },
+        { match: (sql) => sql.includes('SELECT a.*'), respond: () => [{ id: 'a1', erp_voucher_id: 42, date_rappel: '2026-10-15' }] },
+      ])
+    );
+    const res = await request(buildApp())
+      .post('/api/erp/impayes/erp-42/actions')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .send({ contenu: 'Rappeler le client', type_action: 'relance', date_rappel: '2026-10-15' });
+
+    expect(res.status).toBe(201);
+    const insert = db.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO erp_actions'));
+    expect(insert[1][4]).toBe('2026-10-15');
   });
 
   it('blocks lecture_seule from adding actions', async () => {
