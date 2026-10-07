@@ -9,11 +9,11 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  Eye, Clock, TrendingUp, AlertTriangle, FileText, RefreshCw,
+  Eye, Clock, TrendingUp, AlertTriangle, FileText, RefreshCw, Search, Filter, X,
 } from 'lucide-react';
 import {
   Card, KpiCard, Table, Thead, Tbody, Tr, Th, Td, StatusBadge, Pagination,
-  EmptyState, PageSpinner, PageHeader, ChartTooltip,
+  EmptyState, PageSpinner, PageHeader, ChartTooltip, Input, Select, Button, Badge,
 } from '../components/ui';
 
 const formatAxis = (value: number) => value >= 1_000_000
@@ -30,6 +30,15 @@ export default function CommercialPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filterOptions, setFilterOptions] = useState<{
+    partenaires: string[];
+    banques: string[];
+    statuts: string[];
+  }>({ partenaires: [], banques: [], statuts: [] });
 
   const loadDossiers = useCallback(async () => {
     try {
@@ -39,6 +48,8 @@ export default function CommercialPage() {
         limit: '10',
         sort: 'date_facture',
         order: 'DESC',
+        search,
+        ...filters,
       });
       setDossiers(res.dossiers);
       setTotal(res.total);
@@ -48,7 +59,7 @@ export default function CommercialPage() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, search, filters]);
 
   useEffect(() => {
     loadDossiers();
@@ -61,6 +72,43 @@ export default function CommercialPage() {
       .catch(console.error)
       .finally(() => setStatsLoading(false));
   }, []);
+
+  useEffect(() => {
+    api.getErpFilters()
+      .then((result) => setFilterOptions({
+        partenaires: result.partenaires || [],
+        banques: result.banques || [],
+        statuts: result.statuts || [],
+      }))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  const setFilter = (key: string, value: string) => {
+    setFilters((current) => {
+      const next = { ...current };
+      if (value) next[key] = value;
+      else delete next[key];
+      return next;
+    });
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilters({});
+    setSearch('');
+    setSearchInput('');
+    setPage(1);
+  };
+
+  const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
 
   const dormantsCount = stats?.dossiersDormants || 0;
   const contentieuxCount = stats?.parStatut?.find((s) => s.statut === 'Contentieux')?.count || 0;
@@ -158,7 +206,10 @@ export default function CommercialPage() {
 
       <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-sm font-semibold text-gray-900">Mes dossiers récents ({total})</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-gray-900">Mes dossiers récents ({total})</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Recherche et filtres limités à vos dossiers affectés</p>
+          </div>
           <button
             onClick={() => { loadDossiers(); }}
             disabled={loading}
@@ -167,6 +218,57 @@ export default function CommercialPage() {
           >
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
           </button>
+        </div>
+
+        <div className="border-b border-gray-200 bg-gray-50/60 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="flex-1">
+              <Input
+                name="commercial-search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Rechercher par partenaire, numéro ou banque..."
+                icon={<Search className="h-4 w-4" />}
+              />
+            </div>
+            <Button
+              variant={showFilters ? 'secondary' : 'outline'}
+              onClick={() => setShowFilters((current) => !current)}
+              className={showFilters ? 'bg-brand-50 text-brand-700' : ''}
+            >
+              <Filter className="h-4 w-4" />
+              Filtres
+              {activeFilterCount > 0 && <Badge tone="brand">{activeFilterCount}</Badge>}
+            </Button>
+            {activeFilterCount > 0 && (
+              <Button variant="danger" onClick={clearFilters} title="Effacer les filtres">
+                <X className="h-4 w-4" />
+                <span className="sm:hidden">Effacer</span>
+              </Button>
+            )}
+          </div>
+
+          {showFilters && (
+            <div className="mt-3 grid grid-cols-1 gap-3 border-t border-gray-200 pt-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Select label="Partenaire" value={filters.nom_tire || ''} onChange={(event) => setFilter('nom_tire', event.target.value)}>
+                <option value="">Tous les partenaires</option>
+                {filterOptions.partenaires.map((partner) => <option key={partner} value={partner}>{partner}</option>)}
+              </Select>
+              <Select label="Banque" value={filters.banque || ''} onChange={(event) => setFilter('banque', event.target.value)}>
+                <option value="">Toutes les banques</option>
+                {filterOptions.banques.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+              </Select>
+              <Select label="Statut" value={filters.statut || ''} onChange={(event) => setFilter('statut', event.target.value)}>
+                <option value="">Tous les statuts</option>
+                {filterOptions.statuts.map((status) => <option key={status} value={status}>{status}</option>)}
+              </Select>
+              <Select label="Type" value={filters.type_valeur || ''} onChange={(event) => setFilter('type_valeur', event.target.value)}>
+                <option value="">Tous les types</option>
+                <option value="CHQ">Chèque</option>
+                <option value="LCN">Lettre de change</option>
+              </Select>
+            </div>
+          )}
         </div>
 
         {loading ? (
