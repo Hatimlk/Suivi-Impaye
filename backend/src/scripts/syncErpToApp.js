@@ -26,7 +26,7 @@ try {
       TO_CHAR(v.impaye_date, 'YYYY-MM-DD') AS date_saisie,
       TO_CHAR(v.date, 'YYYY-MM-DD') AS date_facture,
       TO_CHAR(COALESCE(v.date_due, v.check_end_date, v.boe_end_date), 'YYYY-MM-DD') AS date_echeance,
-      COALESCE(v.amount, 0) AS montant,
+      GREATEST(COALESCE(v.amount, 0) - COALESCE(v.impaye_amount_paid, 0), 0) AS montant,
       CASE WHEN v.check_journal THEN 'CHQ' WHEN v.boe_journal THEN 'LCN' ELSE 'CHQ' END AS type_valeur,
       COALESCE(NULLIF(v.number, ''), NULLIF(v.reference, ''), v.id::text) AS numero_valeur,
       COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''), 'Client ERP') AS nom_tire,
@@ -37,7 +37,10 @@ try {
       COALESCE(p.seller_id_name, '') AS erp_commercial_nom
     FROM account_voucher v
     LEFT JOIN res_partner p ON p.id = v.partner_id
-    WHERE v.state = 'impaye' AND v.type = 'receipt' AND v.impaye_date IS NOT NULL
+    WHERE v.state = 'impaye'
+      AND v.type = 'receipt'
+      AND v.impaye_date IS NOT NULL
+      AND COALESCE(v.amount, 0) - COALESCE(v.impaye_amount_paid, 0) > 0
     ORDER BY v.id
   `);
 
@@ -48,6 +51,7 @@ try {
     WHERE v.state = 'impaye'
       AND v.type = 'receipt'
       AND v.impaye_date IS NOT NULL
+      AND COALESCE(v.amount, 0) - COALESCE(v.impaye_amount_paid, 0) > 0
       AND COALESCE(NULLIF(BTRIM(p.name), ''), NULLIF(BTRIM(p.display_name), '')) IS NOT NULL
     ORDER BY nom
   `);
