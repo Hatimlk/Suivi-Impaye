@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { formatDate, formatDateTime, ROLE_LABELS, cn } from '../utils';
 import type { User, UserRole, BanqueRef, PartenaireRef, StatutRef, RelationRef, AuditLog } from '../types';
-import { Users, Building2, Handshake, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight, Pencil } from 'lucide-react';
+import { Users, Building2, Handshake, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight, Pencil, Settings, Search, Activity } from 'lucide-react';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Input, Select, Modal,
   EmptyState, PageSpinner, PageHeader,
@@ -49,6 +49,7 @@ export default function AdminPage() {
   const [partenaires, setPartenaires] = useState<PartenaireRef[]>([]);
   const [partenairesLoading, setPartenairesLoading] = useState(false);
   const [partenaireNom, setPartenaireNom] = useState('');
+  const [partenaireSearch, setPartenaireSearch] = useState('');
   const [partenaireSubmitting, setPartenaireSubmitting] = useState(false);
 
   const [statuts, setStatuts] = useState<StatutRef[]>([]);
@@ -334,11 +335,33 @@ export default function AdminPage() {
     setShowUserForm(true);
   };
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="Administration" subtitle="Gestion des utilisateurs, référentiels et journal d'audit" />
+  const currentTab = TABS.find((tab) => tab.key === activeTab)!;
+  const CurrentTabIcon = currentTab.icon;
+  const currentCount = activeTab === 'users' ? users.length
+    : activeTab === 'banques' ? banques.length
+    : activeTab === 'partenaires' ? partenaires.length
+    : activeTab === 'statuts' ? statuts.length
+    : activeTab === 'relations' ? relations.length
+    : auditLogs.length;
+  const filteredPartenaires = partenaires.filter((partenaire) =>
+    partenaire.nom.toLocaleLowerCase('fr').includes(partenaireSearch.trim().toLocaleLowerCase('fr'))
+  );
 
-      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+  return (
+    <div className="space-y-5 pb-8">
+      <PageHeader
+        title={(
+          <span className="flex items-center gap-2">
+            <Settings className="h-6 w-6 text-brand-600" />
+            Paramètres
+          </span>
+        )}
+        subtitle="Gestion des utilisateurs, référentiels et journal d'audit"
+        actions={<Badge tone="info">Administration</Badge>}
+      />
+
+      <Card padding="sm" className="overflow-x-auto border-gray-200/80 shadow-sm">
+      <div className="flex min-w-max gap-1">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -346,10 +369,10 @@ export default function AdminPage() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition',
+                'flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition',
                 activeTab === tab.key
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
               )}
             >
               <Icon className="w-4 h-4" />
@@ -357,6 +380,24 @@ export default function AdminPage() {
             </button>
           );
         })}
+      </div>
+      </Card>
+
+      <div className="flex flex-col justify-between gap-3 rounded-2xl border border-gray-200/80 bg-gradient-to-r from-white to-slate-50 px-5 py-4 shadow-sm sm:flex-row sm:items-center">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+            <CurrentTabIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-gray-950">{currentTab.label}</h2>
+            <p className="text-xs text-gray-500">Gérez et maintenez les données de cette section.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm shadow-xs ring-1 ring-gray-100">
+          <Activity className="h-4 w-4 text-emerald-500" />
+          <span className="text-gray-500">Total</span>
+          <span className="font-bold text-gray-950">{currentCount}</span>
+        </div>
       </div>
 
       {activeTab === 'users' && (
@@ -367,14 +408,14 @@ export default function AdminPage() {
               Nouvel utilisateur
             </Button>
           </div>
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
             {usersLoading ? (
               <PageSpinner label="Chargement..." />
             ) : users.length === 0 ? (
               <EmptyState icon={<Users className="w-6 h-6" />} title="Aucun utilisateur" />
             ) : (
               <Table>
-                <Thead>
+                <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
                   <tr>
                     <Th>Nom</Th>
                     <Th>Email</Th>
@@ -387,7 +428,12 @@ export default function AdminPage() {
                 <Tbody>
                   {users.map((u) => (
                     <Tr key={u.id}>
-                      <Td className="text-gray-900 font-medium">{u.nom}</Td>
+                      <Td className="font-semibold text-gray-950">
+                        <span className="flex items-center gap-2">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-50 text-xs font-bold text-brand-700">{u.nom.charAt(0)}</span>
+                          {u.nom}
+                        </span>
+                      </Td>
                       <Td className="text-gray-600">{u.email}</Td>
                       <Td><Badge tone="neutral" pill={false}>{ROLE_LABELS[u.role] || u.role}</Badge></Td>
                       <Td align="center">
@@ -430,7 +476,7 @@ export default function AdminPage() {
 
       {activeTab === 'banques' && (
         <div className="space-y-4">
-          <form onSubmit={handleCreateBanque} className="flex gap-2 items-start">
+          <form onSubmit={handleCreateBanque} className="flex items-start gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-sm">
             <div className="flex-1">
               <Input value={banqueNom} onChange={(e) => setBanqueNom(e.target.value)} placeholder="Nom de la banque" required />
             </div>
@@ -439,7 +485,7 @@ export default function AdminPage() {
               Ajouter
             </Button>
           </form>
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
             {banquesLoading ? (
               <PageSpinner label="Chargement..." />
             ) : banques.length === 0 ? (
@@ -469,22 +515,25 @@ export default function AdminPage() {
 
       {activeTab === 'partenaires' && (
         <div className="space-y-4">
-          <form onSubmit={handleCreatePartenaire} className="flex gap-2 items-start">
-            <div className="flex-1">
+          <form onSubmit={handleCreatePartenaire} className="grid grid-cols-1 gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-sm sm:grid-cols-[1fr_1fr_auto]">
+            <div>
               <Input value={partenaireNom} onChange={(e) => setPartenaireNom(e.target.value)} placeholder="Nom du partenaire" required />
             </div>
+            <Input value={partenaireSearch} onChange={(e) => setPartenaireSearch(e.target.value)} placeholder="Rechercher dans la liste..." icon={<Search className="h-4 w-4" />} />
             <Button type="submit" loading={partenaireSubmitting}>
               <Plus className="w-4 h-4" /> Ajouter
             </Button>
           </form>
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="max-h-[640px] overflow-y-auto border-gray-200/80 shadow-sm">
             {partenairesLoading ? (
               <PageSpinner label="Chargement..." />
             ) : partenaires.length === 0 ? (
               <EmptyState icon={<Handshake className="w-6 h-6" />} title="Aucun partenaire" />
+            ) : filteredPartenaires.length === 0 ? (
+              <EmptyState icon={<Search className="h-6 w-6" />} title="Aucun partenaire correspondant" />
             ) : (
               <ul className="divide-y divide-gray-100">
-                {partenaires.map((partenaire) => (
+                {filteredPartenaires.map((partenaire) => (
                   <li key={partenaire.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition">
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-gray-900 font-medium">{partenaire.nom}</span>
@@ -547,14 +596,14 @@ export default function AdminPage() {
               </form>
             </Card>
           )}
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
             {statutsLoading ? (
               <PageSpinner label="Chargement..." />
             ) : statuts.length === 0 ? (
               <EmptyState icon={<Tag className="w-6 h-6" />} title="Aucun statut" />
             ) : (
               <Table>
-                <Thead>
+                <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
                   <tr>
                     <Th>Libellé</Th>
                     <Th align="center">Ordre</Th>
@@ -595,7 +644,7 @@ export default function AdminPage() {
 
       {activeTab === 'relations' && (
         <div className="space-y-4">
-          <form onSubmit={handleCreateRelation} className="flex gap-2 items-start">
+          <form onSubmit={handleCreateRelation} className="flex items-start gap-2 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-sm">
             <div className="w-32">
               <Input value={relationForm.code} onChange={(e) => setRelationForm({ ...relationForm, code: e.target.value })} placeholder="Code" required />
             </div>
@@ -607,14 +656,14 @@ export default function AdminPage() {
               Ajouter
             </Button>
           </form>
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
             {relationsLoading ? (
               <PageSpinner label="Chargement..." />
             ) : relations.length === 0 ? (
               <EmptyState icon={<BookOpen className="w-6 h-6" />} title="Aucune relation" />
             ) : (
               <Table>
-                <Thead>
+                <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
                   <tr>
                     <Th>Code</Th>
                     <Th>Libellé</Th>
@@ -648,7 +697,7 @@ export default function AdminPage() {
 
       {activeTab === 'audit' && (
         <div className="space-y-4">
-          <div className="flex gap-3 items-end">
+          <div className="flex flex-col items-end gap-3 rounded-2xl border border-gray-200/80 bg-white p-3 shadow-sm sm:flex-row">
             <Input
               type="date"
               label="Date debut"
@@ -668,14 +717,14 @@ export default function AdminPage() {
               Réinitialiser
             </Button>
           </div>
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
             {auditLoading ? (
               <PageSpinner label="Chargement..." />
             ) : auditLogs.length === 0 ? (
               <EmptyState icon={<FileText className="w-6 h-6" />} title="Aucune entrée" />
             ) : (
               <Table>
-                <Thead>
+                <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
                   <tr>
                     <Th>Date</Th>
                     <Th>Utilisateur</Th>
