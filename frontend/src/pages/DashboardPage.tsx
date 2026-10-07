@@ -502,10 +502,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Grid: Left Profile Card + Right Content */}
-      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
+      <div className="block">
 
         {/* LEFT SUMMARY PROFILE PANEL */}
-        <div className="space-y-4 lg:col-span-4 xl:col-span-3">
+        <div className="hidden">
           <Card className="relative space-y-4 overflow-hidden border-gray-200/90 p-5 text-center shadow-sm">
             {/* Ambient Background Blur */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -608,7 +608,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT MAIN CONTENT AREA */}
-        <div className="space-y-5 lg:col-span-8 xl:col-span-9">
+        <div className="space-y-5">
 
           {/* Top Metric Cards Row */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
