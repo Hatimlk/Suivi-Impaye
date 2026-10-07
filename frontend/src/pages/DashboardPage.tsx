@@ -611,7 +611,18 @@ export default function DashboardPage() {
         <div className="space-y-5">
 
           {/* Top Metric Cards Row */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md">
+              <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center flex-shrink-0">
+                <Layers className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total impayés</p>
+                <p className="text-lg font-extrabold text-gray-900 leading-tight">{stats.total.count} Dossiers</p>
+                <p className="text-xs font-mono font-semibold text-sky-600 truncate">{formatMontant(stats.total.montant)}</p>
+              </div>
+            </Card>
+
             <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md">
               <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
                 <CreditCard className="w-6 h-6" />
