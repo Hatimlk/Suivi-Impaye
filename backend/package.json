@@ -10,6 +10,7 @@
     "inspect-erp": "node src/scripts/inspectErpSchema.js",
     "backup-clear-dossiers": "node src/scripts/backupAndClearDossiers.js --confirm-clear-dossiers",
     "sync-erp": "node src/scripts/syncErpToApp.js",
+    "provision-global-users": "node src/scripts/provisionGlobalUsers.js",
     "seed": "node src/scripts/seedFromTable.js",
     "test": "vitest run"
   },
