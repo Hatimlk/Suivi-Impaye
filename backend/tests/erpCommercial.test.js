@@ -26,8 +26,9 @@ describe('commercial ERP', () => {
   it('removes retired names and uses a known replacement when available', () => {
     const map = buildCommercialMap();
     expect(resolveCommercialName({ erp_commercial_id: 53, erp_commercial_nom: 'BADR' }, map)).toBe('OUSSAMA');
-    expect(resolveCommercialName({ erp_commercial_id: 50, erp_commercial_nom: 'YASSIR' }, map)).toBe('');
-    expect(resolveCommercialName({ erp_commercial_id: 50, erp_commercial_nom: 'BADR' }, map)).toBe('');
+    expect(resolveCommercialName({ erp_commercial_id: 50, erp_commercial_nom: 'YASSIR' }, map)).toBe('NAOUFAL');
+    expect(resolveCommercialName({ erp_commercial_id: 50, erp_commercial_nom: 'BADR' }, map)).toBe('NAOUFAL');
+    expect(resolveCommercialName({ erp_commercial_id: 50, erp_commercial_nom: '' }, map)).toBe('NAOUFAL');
   });
 
   it('allows extra or corrected mappings through the environment format', () => {

@@ -2,6 +2,7 @@ const DEFAULT_COMMERCIALS = Object.freeze({
   34: 'OUSSAMA',
   48: 'NABIL',
   49: 'OMAR',
+  50: 'NAOUFAL',
   53: 'OUSSAMA',
   56: 'FAHD',
   57: 'FAYÇAL',
@@ -11,7 +12,6 @@ const DEFAULT_COMMERCIALS = Object.freeze({
 });
 
 const RETIRED_COMMERCIALS = new Set(['BADR', 'YASSIR']);
-const RETIRED_UNNAMED_IDS = new Set(['50']);
 
 export function parseCommercialMap(value = '') {
   if (!value.trim()) return {};
@@ -39,6 +39,5 @@ export function resolveCommercialName(row, commercialMap) {
   if (sellerId == null) return '';
   const mappedName = commercialMap[String(sellerId)];
   if (mappedName) return mappedName;
-  if (RETIRED_UNNAMED_IDS.has(String(sellerId))) return '';
   return `Commercial ERP #${sellerId}`;
 }
