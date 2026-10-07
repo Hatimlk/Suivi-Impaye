@@ -10,7 +10,7 @@ import {
 } from '../components/ui';
 import {
   Search, Plus, Filter, Download, Eye, Pencil, X, ArrowUpDown, FolderOpen, Upload,
-  Database, WalletCards, CircleDollarSign, AlertTriangle,
+  Database,
 } from 'lucide-react';
 
 const EMPTY_FORM = {
@@ -209,9 +209,6 @@ export default function DossiersPage() {
 
   const hasFilters = Object.keys(filters).length > 0 || search.length > 0;
   const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
-  const visibleAmount = dossiers.reduce((sum, dossier) => sum + Number(dossier.montant || 0), 0);
-  const urgentCount = dossiers.filter((dossier) => joursDepuis(dossier.date_echeance || dossier.date_saisie) >= 30).length;
-
   return (
     <div className="space-y-5 pb-8">
       <PageHeader
@@ -224,12 +221,6 @@ export default function DossiersPage() {
           </Badge>
         )}
       />
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <SummaryCard icon={WalletCards} label="Dossiers actifs" value={String(total)} tone="brand" />
-        <SummaryCard icon={CircleDollarSign} label="Montant sur cette page" value={formatMontant(visibleAmount)} tone="success" />
-        <SummaryCard icon={AlertTriangle} label="Retards 30j+ sur cette page" value={String(urgentCount)} tone="danger" />
-      </div>
 
       <Card padding="sm" className="border-gray-200/80 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -628,35 +619,5 @@ export default function DossiersPage() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: typeof Database;
-  label: string;
-  value: string;
-  tone: 'brand' | 'success' | 'danger';
-}) {
-  const tones = {
-    brand: 'bg-brand-50 text-brand-600 ring-brand-100',
-    success: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
-    danger: 'bg-red-50 text-red-600 ring-red-100',
-  };
-
-  return (
-    <Card className="flex items-center gap-3 border-gray-200/80 py-4 shadow-sm">
-      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1', tones[tone])}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="mt-0.5 truncate text-lg font-bold tracking-tight text-gray-950">{value}</p>
-      </div>
-    </Card>
   );
 }
