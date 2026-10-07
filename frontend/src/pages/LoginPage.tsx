@@ -36,8 +36,8 @@ export default function LoginPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
             <ShieldCheck className="h-8 w-8" />
           </div>
-          <p className="mt-3 text-xl font-black tracking-wide text-slate-950">GADIMAT</p>
-          <p className="text-xs font-medium text-slate-500">Suivi des impayés</p>
+          <p className="mt-3 text-xl font-black tracking-wide text-slate-950">PROGAD</p>
+          <p className="text-xs font-medium text-slate-500">Suivi Impayé</p>
         </div>
 
         <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_80px_-30px_rgba(15,23,42,0.3)] sm:p-9">

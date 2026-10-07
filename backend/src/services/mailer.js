@@ -40,7 +40,7 @@ export async function sendCommercialActionNotification({ commercial, dossier, ac
   }
 
   const dossierUrl = `${config.appUrl.replace(/\/$/, '')}/dossiers/${dossier.id}`;
-  const subject = `[GADIMAT] Nouveau commentaire - ${dossier.nom_tire || dossier.numero_valeur}`;
+  const subject = `[PROGAD] Nouveau commentaire - ${dossier.nom_tire || dossier.numero_valeur}`;
   const safeContent = escapeHtml(action.contenu).replaceAll('\n', '<br>');
 
   await smtp.sendMail({
@@ -74,7 +74,7 @@ export async function sendCommercialActionNotification({ commercial, dossier, ac
           </div>
           <div style="padding:16px;border-left:4px solid #2563eb;background:#eff6ff;margin-bottom:22px">${safeContent}</div>
           <a href="${escapeHtml(dossierUrl)}" style="display:inline-block;padding:11px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">Consulter le dossier</a>
-          <p style="margin-top:24px;color:#64748b;font-size:12px">Notification automatique — Suivi des impayés GADIMAT</p>
+          <p style="margin-top:24px;color:#64748b;font-size:12px">Notification automatique — PROGAD-Suivi Impayé</p>
         </div>
       </div>`,
   });

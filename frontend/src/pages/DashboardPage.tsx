@@ -486,7 +486,7 @@ export default function DashboardPage() {
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Pilotage du portefeuille</p>
           <h1 className="text-2xl font-extrabold text-gray-950 tracking-tight sm:text-3xl">Dashboard Recouvrement</h1>
           <p className="text-xs text-gray-500 mt-1 font-medium">
-            Vue synthétique du portefeuille et suivi analytique des impayés GADIMAT
+            Vue synthétique du portefeuille et suivi analytique dans PROGAD
           </p>
         </div>
         <div className="relative flex flex-wrap items-center gap-2">

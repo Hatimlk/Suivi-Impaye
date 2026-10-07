@@ -74,8 +74,8 @@ export function AppLayout() {
             <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-white tracking-wide">GADIMAT</h1>
-            <p className="text-xs text-slate-400 font-medium">Suivi des Impayés</p>
+            <h1 className="text-base font-bold text-white tracking-wide">PROGAD</h1>
+            <p className="text-xs text-slate-400 font-medium">Suivi Impayé</p>
           </div>
         </div>
 
