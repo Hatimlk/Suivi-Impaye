@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Clock, RefreshCw, Eye, CalendarClock } from 'lucide-react';
 import { useAlerts } from '../hooks/useAlerts';
@@ -19,12 +18,8 @@ export default function AlertsPage() {
   const { rappels, dormants, contentieux, loading, refresh } = useAlerts();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-8">
       <PageHeader
         title="Alertes"
         actions={
@@ -35,13 +30,21 @@ export default function AlertsPage() {
         }
       />
 
+      {!loading && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <AlertSummary icon={CalendarClock} label="Délais dépassés" value={rappels.length} tone="danger" />
+          <AlertSummary icon={Clock} label="Dossiers dormants" value={dormants.length} tone="warning" />
+          <AlertSummary icon={AlertTriangle} label="Contentieux" value={contentieux.length} tone="danger" />
+        </div>
+      )}
+
       {loading && <PageSpinner label="Chargement des alertes..." />}
 
       {!loading && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card padding="none" className="overflow-hidden lg:col-span-2">
-            <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
-              <CalendarClock className="h-5 w-5 text-danger-600" />
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm lg:col-span-2">
+            <div className="flex items-center gap-3 border-b border-red-100 bg-red-50/50 px-6 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-danger-600 shadow-xs"><CalendarClock className="h-5 w-5" /></div>
               <h2 className="text-lg font-semibold text-gray-900">Délais d’action dépassés</h2>
               <Badge tone="danger">{rappels.length}</Badge>
             </div>
@@ -50,11 +53,11 @@ export default function AlertsPage() {
               <EmptyState icon={<CalendarClock className="h-6 w-6 text-success-600" />} title="Aucun délai dépassé" />
             ) : (
               <Table>
-                <Thead><tr><Th>Partenaire</Th><Th>Action</Th><Th>Date limite</Th><Th align="center">Retard</Th><Th>Commercial</Th><Th></Th></tr></Thead>
+                <Thead className="sticky top-0 z-10"><tr><Th>Partenaire</Th><Th>Action</Th><Th>Date limite</Th><Th align="center">Retard</Th><Th>Commercial</Th><Th></Th></tr></Thead>
                 <Tbody>
                   {rappels.map((d) => (
-                    <Tr key={d.action_id}>
-                      <Td className="font-medium text-gray-900">{d.nom_tire}</Td>
+                    <Tr key={d.action_id} className="cursor-pointer hover:bg-red-50/30" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                      <Td className="font-semibold text-gray-950">{d.nom_tire}</Td>
                       <Td className="max-w-[320px] truncate" title={d.action_contenu}>{d.action_contenu}</Td>
                       <Td className="whitespace-nowrap">{new Date(d.date_rappel).toLocaleDateString('fr-FR')}</Td>
                       <Td align="center"><Badge tone="danger">{d.jours_retard}j</Badge></Td>
@@ -66,9 +69,9 @@ export default function AlertsPage() {
               </Table>
             )}
           </Card>
-          <Card padding="none" className="overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
-              <Clock className="h-5 w-5 text-warning-600" />
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="flex items-center gap-3 border-b border-amber-100 bg-amber-50/50 px-6 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-warning-600 shadow-xs"><Clock className="h-5 w-5" /></div>
               <h2 className="text-lg font-semibold text-gray-900">Dossiers dormants</h2>
               <Badge tone="warning">{dormants.length}</Badge>
             </div>
@@ -93,8 +96,8 @@ export default function AlertsPage() {
                 </Thead>
                 <Tbody>
                   {dormants.map((d) => (
-                    <Tr key={d.id}>
-                      <Td className="whitespace-nowrap font-medium text-gray-900">{d.nom_tire}</Td>
+                    <Tr key={d.id} className="cursor-pointer hover:bg-amber-50/30" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                      <Td className="whitespace-nowrap font-semibold text-gray-950">{d.nom_tire}</Td>
                       <Td className="whitespace-nowrap">{d.banque}</Td>
                       <Td align="right" className="whitespace-nowrap font-medium text-gray-900">
                         {formatMontant(d.montant)}
@@ -116,9 +119,9 @@ export default function AlertsPage() {
             )}
           </Card>
 
-          <Card padding="none" className="overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
-              <AlertTriangle className="h-5 w-5 text-danger-600" />
+          <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+            <div className="flex items-center gap-3 border-b border-red-100 bg-red-50/50 px-6 py-4">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-danger-600 shadow-xs"><AlertTriangle className="h-5 w-5" /></div>
               <h2 className="text-lg font-semibold text-gray-900">Dossiers en contentieux</h2>
               <Badge tone="danger">{contentieux.length}</Badge>
             </div>
@@ -143,8 +146,8 @@ export default function AlertsPage() {
                 </Thead>
                 <Tbody>
                   {contentieux.map((d) => (
-                    <Tr key={d.id}>
-                      <Td className="whitespace-nowrap font-medium text-gray-900">{d.nom_tire}</Td>
+                    <Tr key={d.id} className="cursor-pointer hover:bg-red-50/30" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                      <Td className="whitespace-nowrap font-semibold text-gray-950">{d.nom_tire}</Td>
                       <Td className="whitespace-nowrap">{d.banque}</Td>
                       <Td align="right" className="whitespace-nowrap font-medium text-gray-900">
                         {formatMontant(d.montant)}
@@ -166,5 +169,27 @@ export default function AlertsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function AlertSummary({ icon: Icon, label, value, tone }: {
+  icon: typeof AlertTriangle;
+  label: string;
+  value: number;
+  tone: 'danger' | 'warning';
+}) {
+  const style = tone === 'danger'
+    ? 'bg-red-50 text-red-600 ring-red-100'
+    : 'bg-amber-50 text-amber-600 ring-amber-100';
+  return (
+    <Card className="flex items-center gap-3 border-gray-200/80 py-4 shadow-sm">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ring-1 ${style}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="mt-0.5 text-xl font-bold text-gray-950">{value}</p>
+      </div>
+    </Card>
   );
 }

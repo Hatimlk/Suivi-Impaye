@@ -478,16 +478,18 @@ export default function DashboardPage() {
   const portfolioYear = stats.total.date_reference ? new Date(stats.total.date_reference).getFullYear() : new Date().getFullYear();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {/* Top Banner Title */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="relative flex flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-r from-white via-white to-brand-50/70 p-5 shadow-sm md:flex-row md:items-center sm:p-6">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-brand-200/30 blur-3xl" />
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Dashboard Recouvrement</h1>
+          <p className="mb-1 text-xs font-bold uppercase tracking-[0.16em] text-brand-600">Pilotage du portefeuille</p>
+          <h1 className="text-2xl font-extrabold text-gray-950 tracking-tight sm:text-3xl">Dashboard Recouvrement</h1>
           <p className="text-xs text-gray-500 mt-1 font-medium">
             Vue synthétique du portefeuille et suivi analytique des impayés GADIMAT
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={handleExport} className="rounded-xl">
             <Download className="w-4 h-4" />
             <span>Exporter Rapport</span>
@@ -500,17 +502,17 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Grid: Left Profile Card + Right Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-12">
 
         {/* LEFT SUMMARY PROFILE PANEL */}
-        <div className="lg:col-span-4 xl:col-span-3 space-y-4">
-          <Card className="p-6 text-center space-y-5 shadow-sm border-gray-200/90 relative overflow-hidden">
+        <div className="space-y-4 lg:col-span-4 xl:col-span-3">
+          <Card className="relative space-y-4 overflow-hidden border-gray-200/90 p-5 text-center shadow-sm">
             {/* Ambient Background Blur */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
 
             {/* Profile Avatar / Initials Circle */}
             <div className="relative inline-block">
-              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-tr from-brand-600 via-brand-500 to-indigo-600 text-white flex items-center justify-center text-3xl font-extrabold shadow-lg shadow-brand-500/30 ring-4 ring-white">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-tr from-brand-600 via-brand-500 to-indigo-600 text-2xl font-extrabold text-white shadow-lg shadow-brand-500/30 ring-4 ring-white">
                 GD
               </div>
               <span className="absolute bottom-1 right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full flex items-center justify-center text-[9px] text-white font-bold">
@@ -606,11 +608,11 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT MAIN CONTENT AREA */}
-        <div className="lg:col-span-8 xl:col-span-9 space-y-6">
+        <div className="space-y-5 lg:col-span-8 xl:col-span-9">
 
           {/* Top Metric Cards Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 flex items-center gap-3.5 bg-white hover:border-brand-300 transition">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md">
               <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center flex-shrink-0">
                 <CreditCard className="w-6 h-6" />
               </div>
@@ -621,7 +623,7 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 flex items-center gap-3.5 bg-white hover:border-violet-300 transition">
+            <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md">
               <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center flex-shrink-0">
                 <FileText className="w-6 h-6" />
               </div>
@@ -632,7 +634,7 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 flex items-center gap-3.5 bg-white hover:border-amber-300 transition">
+            <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
                 <Clock className="w-6 h-6" />
               </div>
@@ -643,7 +645,7 @@ export default function DashboardPage() {
               </div>
             </Card>
 
-            <Card className="p-4 flex items-center gap-3.5 bg-white hover:border-emerald-300 transition">
+            <Card className="flex items-center gap-3.5 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md">
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
                 <CheckCircle2 className="w-6 h-6" />
               </div>

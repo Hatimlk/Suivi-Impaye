@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { formatMontant, formatDate } from '../utils';
 import type { Dossier } from '../types';
 import {
-  Gavel, Search, Filter, X, Eye, Scale, CheckCircle2,
+  Gavel, Search, Filter, X, Eye, Scale, CheckCircle2, WalletCards, CircleDollarSign,
 } from 'lucide-react';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, StatusBadge, Button, Input, Select,
@@ -25,6 +25,7 @@ export default function DerogationPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [showFilters, setShowFilters] = useState(false);
 
@@ -66,6 +67,14 @@ export default function DerogationPage() {
   }, [page, search, filters]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const openDecision = (d: Dossier) => {
     setDecisionDossier(d);
@@ -109,13 +118,16 @@ export default function DerogationPage() {
   const clearFilters = () => {
     setFilters({});
     setSearch('');
+    setSearchInput('');
     setPage(1);
   };
 
   const hasFilters = Object.keys(filters).length > 0 || search.length > 0;
+  const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
+  const visibleAmount = dossiers.reduce((sum, dossier) => sum + Number(dossier.montant || 0), 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 pb-8">
       <PageHeader
         title={
           <span className="flex items-center gap-2">
@@ -126,12 +138,18 @@ export default function DerogationPage() {
         subtitle="Décision finale sur les dossiers — la charge reste chez le commercial"
       />
 
-      <Card padding="sm">
-        <div className="flex gap-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <DecisionSummary icon={WalletCards} label="Dossiers à examiner" value={String(total)} tone="brand" />
+        <DecisionSummary icon={CircleDollarSign} label="Montant sur cette page" value={formatMontant(visibleAmount)} tone="success" />
+        <DecisionSummary icon={Filter} label="Filtres actifs" value={String(activeFilterCount)} tone="warning" />
+      </div>
+
+      <Card padding="sm" className="border-gray-200/80 shadow-sm">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="flex-1">
             <Input
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Rechercher par nom, numero, banque..."
               icon={<Search className="w-4 h-4" />}
             />
@@ -143,6 +161,7 @@ export default function DerogationPage() {
           >
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Filtres</span>
+            {activeFilterCount > 0 && <Badge tone="brand">{activeFilterCount}</Badge>}
           </Button>
           {hasFilters && (
             <Button variant="danger" onClick={clearFilters}>
@@ -178,14 +197,21 @@ export default function DerogationPage() {
         )}
       </Card>
 
-      <Card padding="none" className="overflow-hidden">
+      <Card padding="none" className="overflow-hidden border-gray-200/80 shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50/70 px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-950">Dossiers soumis à décision</h2>
+            <p className="text-xs text-gray-500">{total} dossier(s)</p>
+          </div>
+          {hasFilters && <button onClick={clearFilters} className="text-xs font-medium text-brand-600">Réinitialiser</button>}
+        </div>
         {loading ? (
           <PageSpinner label="Chargement des dossiers..." />
         ) : dossiers.length === 0 ? (
           <EmptyState title="Aucun dossier trouvé" />
         ) : (
           <Table>
-            <Thead>
+            <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
               <tr>
                 <Th>Date de facture</Th>
                 <Th>Banque</Th>
@@ -205,7 +231,7 @@ export default function DerogationPage() {
                   role="link"
                   tabIndex={0}
                   aria-label={`Ouvrir le dossier ${d.numero_valeur}`}
-                  className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                  className="group cursor-pointer focus:outline-none hover:bg-brand-50/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
                   onClick={() => navigate(`/dossiers/${d.id}`)}
                   onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) return;
@@ -224,7 +250,7 @@ export default function DerogationPage() {
                     </Badge>
                   </Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
-                  <Td className="text-gray-900 font-medium max-w-[180px] truncate">{d.nom_tire}</Td>
+                  <Td className="max-w-[200px] truncate font-semibold text-gray-950 group-hover:text-brand-700">{d.nom_tire}</Td>
                   <Td className="text-gray-600 max-w-[120px] truncate">{d.commercial_nom || '-'}</Td>
                   <Td><StatusBadge statut={d.statut} /></Td>
                   <Td align="center">
@@ -234,7 +260,7 @@ export default function DerogationPage() {
                           event.stopPropagation();
                           navigate(`/dossiers/${d.id}`);
                         }}
-                        className="p-1.5 hover:bg-brand-50 rounded-lg transition text-brand-600"
+                        className="rounded-lg border border-transparent p-1.5 text-brand-600 transition hover:border-brand-100 hover:bg-white hover:shadow-xs"
                         title="Voir le dossier"
                       >
                         <Eye className="w-4 h-4" />
@@ -244,7 +270,7 @@ export default function DerogationPage() {
                           event.stopPropagation();
                           openDecision(d);
                         }}
-                        className="p-1.5 hover:bg-brand-50 rounded-lg transition text-brand-600"
+                        className="rounded-lg border border-transparent p-1.5 text-brand-600 transition hover:border-brand-100 hover:bg-white hover:shadow-xs"
                         title="Prendre une décision (dérogation)"
                       >
                         <Gavel className="w-4 h-4" />
@@ -267,7 +293,7 @@ export default function DerogationPage() {
       >
         {decisionDossier && (
           <div className="space-y-4">
-            <div className="bg-gray-50 rounded-lg p-3">
+            <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-gray-500">Dossier:</span>
@@ -331,5 +357,29 @@ export default function DerogationPage() {
         )}
       </Modal>
     </div>
+  );
+}
+
+function DecisionSummary({ icon: Icon, label, value, tone }: {
+  icon: typeof Scale;
+  label: string;
+  value: string;
+  tone: 'brand' | 'success' | 'warning';
+}) {
+  const tones = {
+    brand: 'bg-brand-50 text-brand-600 ring-brand-100',
+    success: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+    warning: 'bg-amber-50 text-amber-600 ring-amber-100',
+  };
+  return (
+    <Card className="flex items-center gap-3 border-gray-200/80 py-4 shadow-sm">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${tones[tone]}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-gray-500">{label}</p>
+        <p className="mt-0.5 truncate text-lg font-bold text-gray-950">{value}</p>
+      </div>
+    </Card>
   );
 }
