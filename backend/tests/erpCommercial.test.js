@@ -19,8 +19,12 @@ describe('commercial ERP', () => {
     expect(resolveCommercialName({ erp_commercial_id: 48 }, map)).toBe('NABIL');
   });
 
-  it('keeps a name supplied directly by the ERP', () => {
-    expect(resolveCommercialName({ erp_commercial_id: 75, erp_commercial_nom: 'Nom ERP' }, buildCommercialMap())).toBe('Nom ERP');
+  it('keeps a name supplied by the ERP when its ID has no confirmed mapping', () => {
+    expect(resolveCommercialName({ erp_commercial_id: 999, erp_commercial_nom: 'Nom ERP' }, buildCommercialMap())).toBe('Nom ERP');
+  });
+
+  it('prioritizes the confirmed ERP seller ID over a stale partner label', () => {
+    expect(resolveCommercialName({ erp_commercial_id: 56, erp_commercial_nom: 'OMAR' }, buildCommercialMap())).toBe('FAHD');
   });
 
   it('removes retired names and uses a known replacement when available', () => {

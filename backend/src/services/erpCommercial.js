@@ -32,12 +32,13 @@ export function buildCommercialMap(value = '') {
 }
 
 export function resolveCommercialName(row, commercialMap) {
+  const sellerId = row.erp_commercial_id;
+  if (sellerId != null) {
+    const mappedName = commercialMap[String(sellerId)];
+    if (mappedName) return mappedName;
+  }
+
   const providedName = String(row.erp_commercial_nom || '').trim();
   if (providedName && !RETIRED_COMMERCIALS.has(providedName.toUpperCase())) return providedName;
-
-  const sellerId = row.erp_commercial_id;
-  if (sellerId == null) return '';
-  const mappedName = commercialMap[String(sellerId)];
-  if (mappedName) return mappedName;
-  return `Commercial ERP #${sellerId}`;
+  return sellerId == null ? '' : `Commercial ERP #${sellerId}`;
 }
