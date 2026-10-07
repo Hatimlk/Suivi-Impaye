@@ -44,7 +44,7 @@ export function AppLayout() {
         { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
         { to: '/dossiers', icon: FileText, label: 'Dossiers' },
         { to: '/alertes', icon: Bell, label: 'Alertes', badge: alertCount },
-        ...(user?.role === 'admin' || user?.role === 'responsable_recouvrement'
+        ...(user?.role === 'admin'
           ? [{ to: '/derogation', icon: Scale, label: 'Dérogation' }]
           : []),
         ...(user?.role === 'admin'

@@ -879,6 +879,10 @@ router.patch('/:id/reaffecter', requireRole('admin', 'responsable_recouvrement')
 // POST /api/dossiers/:id/actions - Ajouter une action
 router.post('/:id/actions', validate(createActionSchema), async (req, res) => {
   try {
+    if (req.validated.type_action === 'derogation' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Dérogation réservée aux administrateurs' });
+    }
+
     const existing = await query('SELECT * FROM dossiers WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Dossier introuvable' });

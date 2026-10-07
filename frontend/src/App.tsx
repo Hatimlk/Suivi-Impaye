@@ -66,7 +66,10 @@ export default function App() {
           <Route path="mes-dossiers" element={<CommercialPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="alertes" element={<AlertsPage />} />
-          <Route path="derogation" element={<DerogationPage />} />
+          <Route
+            path="derogation"
+            element={user?.role === 'admin' ? <DerogationPage /> : <Navigate to="/" replace />}
+          />
           <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

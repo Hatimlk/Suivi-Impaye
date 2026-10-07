@@ -383,6 +383,9 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   const id = parseErpId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
   if (req.user.role === 'lecture_seule') return res.status(403).json({ error: 'Lecture seule' });
+  if (req.validated.type_action === 'derogation' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Dérogation réservée aux administrateurs' });
+  }
   if (!(await assertErpOwnership(req, res, id))) return;
   await query(`INSERT INTO erp_dossier_suivi (erp_voucher_id) VALUES ($1) ON CONFLICT DO NOTHING`, [id]);
   const result = await query(`INSERT INTO erp_actions (erp_voucher_id, auteur_id, contenu, type_action, date_rappel) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [id, req.user.id, req.validated.contenu, req.validated.type_action, req.validated.date_rappel || null]);
