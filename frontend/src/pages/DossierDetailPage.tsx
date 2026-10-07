@@ -147,6 +147,18 @@ export default function DossierDetailPage() {
     }
   };
 
+  const canDeleteAction = user?.role === 'admin' || user?.email === 'franck.guillet@gadimat.com';
+
+  const handleDeleteAction = async (actionId: string) => {
+    if (!confirm('Supprimer cette action ? Elle sera aussi retirée du journal d\'audit.')) return;
+    try {
+      await api.deleteAction(id!, actionId);
+      await loadDossier();
+    } catch (err: any) {
+      alert(err.message || 'Erreur lors de la suppression de l\'action');
+    }
+  };
+
   const handlePrint = () => window.print();
 
   if (loading || !dossier) {
@@ -340,6 +352,16 @@ export default function DossierDetailPage() {
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{action.contenu}</p>
                   </div>
+                  {canDeleteAction && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAction(action.id)}
+                      className="flex-shrink-0 rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+                      title="Supprimer cette action"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

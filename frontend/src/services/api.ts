@@ -103,6 +103,8 @@ export const api = {
   // Actions
   addAction: (dossierId: string, data: { contenu: string; type_action?: string; date_rappel?: string | null }) =>
     request<any>(`/erp/impayes/${dossierId}/actions`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteAction: (dossierId: string, actionId: string) =>
+    request<any>(`/erp/impayes/${dossierId}/actions/${actionId}`, { method: 'DELETE' }),
 
   // Stats & Alerts
   getStats: () => request<any>('/erp/stats'),

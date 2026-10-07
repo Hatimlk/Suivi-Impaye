@@ -395,6 +395,27 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   res.status(201).json(action.rows[0]);
 });
 
+router.delete('/impayes/:id/actions/:actionId', async (req, res) => {
+  const id = parseErpId(req.params.id);
+  if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
+  const isAuthorized = req.user.role === 'admin' || req.user.email === 'franck.guillet@gadimat.com';
+  if (!isAuthorized) {
+    return res.status(403).json({ error: 'Suppression réservée aux administrateurs' });
+  }
+
+  const existing = await query(`SELECT id FROM erp_actions WHERE id = $1 AND erp_voucher_id = $2`, [req.params.actionId, id]);
+  if (!existing.rows[0]) return res.status(404).json({ error: 'Action introuvable' });
+
+  await query(`DELETE FROM audit_logs WHERE action_type = 'erp_action' AND details_json->>'action_id' = $1`, [req.params.actionId]);
+  await query(`DELETE FROM erp_actions WHERE id = $1`, [req.params.actionId]);
+  await query(
+    `UPDATE erp_dossier_suivi SET date_derniere_action = (SELECT MAX(date_action) FROM erp_actions WHERE erp_voucher_id = $1), date_derniere_modification = NOW() WHERE erp_voucher_id = $1`,
+    [id]
+  );
+
+  res.json({ success: true });
+});
+
 router.patch('/impayes/:id/reaffecter', requireRole('admin', 'responsable_recouvrement'), validate(reaffecterBodySchema), async (req, res) => {
   const id = parseErpId(req.params.id);
   if (!id) return res.status(400).json({ error: 'Identifiant ERP invalide' });
