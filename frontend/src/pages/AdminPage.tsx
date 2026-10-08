@@ -145,6 +145,20 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteAuditLog = async (id: string) => {
+    if (!confirm("Supprimer définitivement cette entrée du journal d'audit ?")) return;
+    try {
+      await api.deleteAuditLog(id);
+      if (auditLogs.length === 1 && auditPage > 1) {
+        setAuditPage((current) => current - 1);
+      } else {
+        await loadAuditLogs();
+      }
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de la suppression de l'entrée d'audit");
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'users') loadUsers();
     if (activeTab === 'banques') loadBanques();
@@ -730,6 +744,7 @@ export default function AdminPage() {
                     <Th>Utilisateur</Th>
                     <Th>Action</Th>
                     <Th>Détails</Th>
+                    <Th align="center">Supprimer</Th>
                   </tr>
                 </Thead>
                 <Tbody>
@@ -740,6 +755,16 @@ export default function AdminPage() {
                       <Td><Badge tone="neutral" pill={false}>{log.action_type}</Badge></Td>
                       <Td className="text-gray-600 max-w-xs truncate">
                         {Object.keys(log.details_json).length > 0 ? JSON.stringify(log.details_json) : '-'}
+                      </Td>
+                      <Td align="center">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAuditLog(log.id)}
+                          className="rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
+                          title="Supprimer cette entrée"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </Td>
                     </Tr>
                   ))}

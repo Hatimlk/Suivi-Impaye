@@ -145,6 +145,8 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request<any>(`/admin/audit-logs?${qs}`);
   },
+  deleteAuditLog: (id: string) =>
+    request<any>(`/admin/audit-logs/${id}`, { method: 'DELETE' }),
 
   // Import
   importExcel: (file: File) => {

@@ -402,4 +402,17 @@ router.get('/audit-logs', requireRole('admin'), validateQuery(auditLogQuerySchem
   }
 });
 
+router.delete('/audit-logs/:id', requireRole('admin'), async (req, res) => {
+  try {
+    const existing = await query('SELECT id FROM audit_logs WHERE id = $1', [req.params.id]);
+    if (!existing.rows[0]) return res.status(404).json({ error: "Entrée d'audit introuvable" });
+
+    await query('DELETE FROM audit_logs WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Erreur suppression audit:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 export default router;
