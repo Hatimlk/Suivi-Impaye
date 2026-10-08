@@ -4,6 +4,7 @@ import { query } from '../config/db.js';
 import { ensureErpTrackingTables } from '../services/schema.js';
 import { validate, validateQuery, createActionSchema, erpImpayesQuerySchema, statutBodySchema, reaffecterBodySchema } from '../schemas/validation.js';
 import { logAudit } from '../middleware/audit.js';
+import { sendCommercialActionNotification } from '../services/mailer.js';
 
 const router = Router();
 router.use(authenticateToken);
@@ -32,6 +33,24 @@ function normalizeCommercialName(value) {
 
 function normalizedCommercialSql(expression) {
   return `REGEXP_REPLACE(TRANSLATE(UPPER(COALESCE(${expression}, '')), 'Ç', 'C'), '[^A-Z0-9]', '', 'g')`;
+}
+
+async function findEffectiveCommercial(dossier) {
+  if (dossier.commercial_id) {
+    const assigned = await query(
+      "SELECT id, nom, email FROM users WHERE id = $1 AND actif = true AND role = 'commercial'",
+      [dossier.commercial_id]
+    );
+    if (assigned.rows[0]) return assigned.rows[0];
+  }
+
+  const normalizedName = normalizeCommercialName(dossier.commercial_nom || dossier.erp_commercial_nom);
+  if (!normalizedName) return null;
+
+  const users = await query(
+    "SELECT id, nom, email FROM users WHERE actif = true AND role = 'commercial'"
+  );
+  return users.rows.find((user) => normalizeCommercialName(user.nom) === normalizedName) || null;
 }
 
 function addCommercialScope(conditions, params, user) {
@@ -392,6 +411,28 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
   await query(`UPDATE erp_dossier_suivi SET date_derniere_action = NOW(), date_derniere_modification = NOW() WHERE erp_voucher_id = $1`, [id]);
   await logAudit(req.user.id, null, 'erp_action', { erp_voucher_id: id, action_id: result.rows[0].id });
   const action = await query(`SELECT a.*, ('erp-' || a.erp_voucher_id) AS dossier_id, u.nom AS auteur_nom FROM erp_actions a LEFT JOIN users u ON u.id = a.auteur_id WHERE a.id = $1`, [result.rows[0].id]);
+
+  // Les affectations ERP ne possèdent pas toujours de commercial_id local :
+  // dans ce cas, retrouver le compte commercial actif à partir du nom ERP.
+  try {
+    const dossierResult = await query(`${selectDossier} WHERE v.erp_voucher_id = $1 AND v.actif = true`, [id]);
+    if (dossierResult.rows[0]) {
+      const dossier = mapDossier(dossierResult.rows[0]);
+      const commercial = await findEffectiveCommercial(dossier);
+      if (commercial?.email && commercial.id !== req.user.id) {
+        await sendCommercialActionNotification({
+          commercial,
+          dossier,
+          action: result.rows[0],
+          auteurNom: req.user.nom || 'Un utilisateur',
+        });
+      }
+    }
+  } catch (mailError) {
+    // La relance doit rester enregistrée même si le SMTP est momentanément indisponible.
+    console.error('Erreur notification email ERP:', mailError.message);
+  }
+
   res.status(201).json(action.rows[0]);
 });
 
