@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ROLE_LABELS, cn } from '../utils';
 import { useAlerts } from '../hooks/useAlerts';
 import { Badge } from '../components/ui';
+import { api } from '../services/api';
 import {
   LayoutDashboard,
   FileText,
@@ -18,7 +19,16 @@ import {
   ChevronDown,
   Mail,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+type AppNotification = {
+  id: string;
+  dossier_id: string;
+  titre: string;
+  message: string;
+  lu: boolean;
+  date_creation: string;
+};
 
 export function AppLayout() {
   const { user, logout } = useAuth();
@@ -26,7 +36,42 @@ export function AppLayout() {
   const { rappels, dormants, contentieux } = useAlerts();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const alertCount = rappels.length + dormants.length + contentieux.length;
+
+  const loadNotifications = async () => {
+    try {
+      const data = await api.getNotifications();
+      setNotifications(data.notifications || []);
+      setUnreadCount(data.unreadCount || 0);
+    } catch {
+      // Ne pas perturber la navigation si le service de notifications est indisponible.
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(interval);
+  }, [user?.id]);
+
+  const openNotification = async (notification: AppNotification) => {
+    if (!notification.lu) {
+      await api.markNotificationRead(notification.id).catch(() => undefined);
+      setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, lu: true } : item));
+      setUnreadCount((count) => Math.max(0, count - 1));
+    }
+    setNotificationsOpen(false);
+    navigate(`/dossiers/${notification.dossier_id}`);
+  };
+
+  const markAllRead = async () => {
+    await api.markAllNotificationsRead();
+    setNotifications((items) => items.map((item) => ({ ...item, lu: true })));
+    setUnreadCount(0);
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -154,16 +199,63 @@ export function AppLayout() {
             </div>
 
             {/* Notification alert icon */}
-            <NavLink
-              to="/alertes"
-              className="relative p-2 text-gray-500 hover:text-brand-600 hover:bg-gray-100 rounded-xl transition-colors"
-              title="Alertes relances"
-            >
-              <Bell className="w-5 h-5" />
-              {alertCount > 0 && (
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger-600 rounded-full ring-2 ring-white" />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotificationsOpen((open) => !open);
+                  setAccountOpen(false);
+                  loadNotifications();
+                }}
+                className="relative p-2 text-gray-500 hover:text-brand-600 hover:bg-gray-100 rounded-xl transition-colors"
+                title="Notifications"
+                aria-label={`${unreadCount} notification(s) non lue(s)`}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex min-w-4.5 h-4.5 items-center justify-center rounded-full bg-danger-600 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <button type="button" className="fixed inset-0 z-40 cursor-default" onClick={() => setNotificationsOpen(false)} aria-label="Fermer les notifications" />
+                  <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-[min(92vw,380px)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-slate-900/10">
+                    <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                      <div>
+                        <p className="text-sm font-bold text-gray-950">Notifications</p>
+                        <p className="text-xs text-gray-500">{unreadCount} non lue(s)</p>
+                      </div>
+                      {unreadCount > 0 && <button onClick={markAllRead} className="text-xs font-semibold text-brand-600 hover:text-brand-700">Tout marquer comme lu</button>}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="px-5 py-10 text-center text-sm text-gray-500">Aucune notification</div>
+                      ) : notifications.map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => openNotification(notification)}
+                          className={cn('block w-full border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50', !notification.lu && 'bg-brand-50/60')}
+                        >
+                          <div className="flex gap-3">
+                            <span className={cn('mt-1.5 h-2 w-2 shrink-0 rounded-full', notification.lu ? 'bg-gray-200' : 'bg-brand-600')} />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900">{notification.titre}</p>
+                              <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{notification.message}</p>
+                              <p className="mt-1.5 text-[11px] text-gray-400">{new Date(notification.date_creation).toLocaleString('fr-FR')}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => { setNotificationsOpen(false); navigate('/alertes'); }} className="w-full border-t border-gray-100 px-4 py-3 text-center text-xs font-semibold text-brand-600 hover:bg-gray-50">Voir toutes les alertes</button>
+                  </div>
+                </>
               )}
-            </NavLink>
+            </div>
 
             {/* Account menu */}
             <div className="relative border-l border-gray-200 pl-2">

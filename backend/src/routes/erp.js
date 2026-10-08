@@ -216,6 +216,43 @@ router.get('/calendrier', async (req, res) => {
   }
 });
 
+router.get('/notifications', async (req, res) => {
+  const result = await query(
+    `SELECT id, ('erp-' || erp_voucher_id) AS dossier_id, action_id, titre, message,
+            lu, date_creation, date_lecture
+     FROM notifications
+     WHERE user_id = $1
+     ORDER BY date_creation DESC
+     LIMIT 30`,
+    [req.user.id]
+  );
+  res.json({
+    notifications: result.rows,
+    unreadCount: result.rows.filter((notification) => !notification.lu).length,
+  });
+});
+
+router.patch('/notifications/:id/read', async (req, res) => {
+  const result = await query(
+    `UPDATE notifications
+     SET lu = true, date_lecture = COALESCE(date_lecture, NOW())
+     WHERE id = $1 AND user_id = $2
+     RETURNING id, lu, date_lecture`,
+    [req.params.id, req.user.id]
+  );
+  if (!result.rows[0]) return res.status(404).json({ error: 'Notification introuvable' });
+  res.json(result.rows[0]);
+});
+
+router.patch('/notifications/read-all', async (req, res) => {
+  await query(
+    `UPDATE notifications SET lu = true, date_lecture = COALESCE(date_lecture, NOW())
+     WHERE user_id = $1 AND lu = false`,
+    [req.user.id]
+  );
+  res.json({ success: true });
+});
+
 router.get('/alerts', async (req, res) => {
   try {
     const { where, params } = buildFilters({}, req.user);
@@ -419,13 +456,26 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
     if (dossierResult.rows[0]) {
       const dossier = mapDossier(dossierResult.rows[0]);
       const commercial = await findEffectiveCommercial(dossier);
-      if (commercial?.email && commercial.id !== req.user.id) {
-        await sendCommercialActionNotification({
-          commercial,
-          dossier,
-          action: result.rows[0],
-          auteurNom: req.user.nom || 'Un utilisateur',
-        });
+      if (commercial && commercial.id !== req.user.id) {
+        await query(
+          `INSERT INTO notifications (user_id, erp_voucher_id, action_id, titre, message)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            commercial.id,
+            id,
+            result.rows[0].id,
+            req.validated.type_action === 'relance' ? 'Nouvelle relance' : 'Nouvelle action',
+            `${req.user.nom || 'Un utilisateur'} : ${req.validated.contenu}`,
+          ]
+        );
+        if (commercial.email) {
+          await sendCommercialActionNotification({
+            commercial,
+            dossier,
+            action: result.rows[0],
+            auteurNom: req.user.nom || 'Un utilisateur',
+          });
+        }
       }
     }
   } catch (mailError) {
@@ -447,6 +497,7 @@ router.delete('/impayes/:id/actions/:actionId', async (req, res) => {
   const existing = await query(`SELECT id FROM erp_actions WHERE id = $1 AND erp_voucher_id = $2`, [req.params.actionId, id]);
   if (!existing.rows[0]) return res.status(404).json({ error: 'Action introuvable' });
 
+  await query(`DELETE FROM notifications WHERE action_id = $1`, [req.params.actionId]);
   await query(`DELETE FROM audit_logs WHERE action_type = 'erp_action' AND details_json->>'action_id' = $1`, [req.params.actionId]);
   await query(`DELETE FROM erp_actions WHERE id = $1`, [req.params.actionId]);
   await query(

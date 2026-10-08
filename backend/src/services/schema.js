@@ -163,6 +163,22 @@ export function ensureErpTrackingTables() {
       CREATE INDEX IF NOT EXISTS idx_erp_actions_date_rappel ON erp_actions(date_rappel) WHERE date_rappel IS NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_erp_suivi_commercial ON erp_dossier_suivi(commercial_id);
 
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        erp_voucher_id INTEGER,
+        action_id UUID,
+        titre VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        lu BOOLEAN NOT NULL DEFAULT false,
+        date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        date_lecture TIMESTAMP WITH TIME ZONE
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_date
+        ON notifications(user_id, date_creation DESC);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
+        ON notifications(user_id, lu) WHERE lu = false;
+
       INSERT INTO statuts_reference (libelle, ordre, couleur) VALUES
         ('Contentieux', 0, '#dc2626'),
         ('Pré-contentieux', 1, '#ea580c'),

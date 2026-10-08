@@ -109,6 +109,11 @@ export const api = {
   // Stats & Alerts
   getStats: () => request<any>('/erp/stats'),
   getAlerts: () => request<any>('/erp/alerts'),
+  getNotifications: () => request<{ notifications: any[]; unreadCount: number }>('/erp/notifications'),
+  markNotificationRead: (id: string) =>
+    request<any>(`/erp/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsRead: () =>
+    request<any>('/erp/notifications/read-all', { method: 'PATCH' }),
 
   // Admin
   getUsers: () => request<any[]>('/admin/users'),
