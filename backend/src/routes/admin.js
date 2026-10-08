@@ -7,6 +7,7 @@ import { logAudit } from '../middleware/audit.js';
 import { ipRateLimiter } from '../middleware/rateLimiter.js';
 import { ensurePartenairesTable } from '../services/schema.js';
 import { checkErpConnection, getErpConfigurationStatus } from '../config/erpDb.js';
+import { sendSmtpTestEmail } from '../services/mailer.js';
 import {
   validate,
   validateQuery,
@@ -21,6 +22,16 @@ import {
 
 const router = Router();
 router.use(authenticateToken);
+
+router.post('/smtp/test', requireRole('admin'), async (req, res) => {
+  try {
+    const result = await sendSmtpTestEmail({ to: req.user.email, nom: req.user.nom });
+    res.json(result);
+  } catch (err) {
+    console.error('Erreur test SMTP:', err.message);
+    res.status(503).json({ error: 'Échec du test SMTP. Vérifiez les variables Vercel et le mot de passe.' });
+  }
+});
 
 // Création de compte ("signup" admin) et réinitialisation de mot de passe sont des cibles
 // de choix pour un abus (admin compromis / script en boucle) : on les limite en plus du rôle requis.

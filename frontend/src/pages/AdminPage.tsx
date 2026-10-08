@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { formatDate, formatDateTime, ROLE_LABELS, cn } from '../utils';
 import type { User, UserRole, BanqueRef, PartenaireRef, StatutRef, RelationRef, AuditLog } from '../types';
-import { Users, Building2, Handshake, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight, Pencil, Settings, Search, Activity } from 'lucide-react';
+import { Users, Building2, Handshake, Tag, BookOpen, FileText, Plus, Trash2, ToggleLeft, ToggleRight, Pencil, Settings, Search, Activity, MailCheck } from 'lucide-react';
 import {
   Card, Table, Thead, Tbody, Tr, Th, Td, Badge, Button, Input, Select, Modal,
   EmptyState, PageSpinner, PageHeader,
@@ -69,6 +69,7 @@ export default function AdminPage() {
   const [auditTotalPages, setAuditTotalPages] = useState(1);
   const [auditDateDebut, setAuditDateDebut] = useState('');
   const [auditDateFin, setAuditDateFin] = useState('');
+  const [smtpTesting, setSmtpTesting] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -156,6 +157,18 @@ export default function AdminPage() {
       }
     } catch (err: any) {
       alert(err.message || "Erreur lors de la suppression de l'entrée d'audit");
+    }
+  };
+
+  const handleTestSmtp = async () => {
+    try {
+      setSmtpTesting(true);
+      const result = await api.testSmtp();
+      alert(`E-mail de test envoyé à ${result.to}`);
+    } catch (err: any) {
+      alert(err.message || 'Échec du test SMTP');
+    } finally {
+      setSmtpTesting(false);
     }
   };
 
@@ -371,7 +384,15 @@ export default function AdminPage() {
           </span>
         )}
         subtitle="Gestion des utilisateurs, référentiels et journal d'audit"
-        actions={<Badge tone="info">Administration</Badge>}
+        actions={(
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleTestSmtp} loading={smtpTesting}>
+              <MailCheck className="h-4 w-4" />
+              Tester SMTP
+            </Button>
+            <Badge tone="info">Administration</Badge>
+          </div>
+        )}
       />
 
       <Card padding="sm" className="overflow-x-auto border-gray-200/80 shadow-sm">

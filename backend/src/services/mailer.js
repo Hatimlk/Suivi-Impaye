@@ -81,3 +81,33 @@ export async function sendCommercialActionNotification({ commercial, dossier, ac
 
   return { sent: true };
 }
+
+export async function sendSmtpTestEmail({ to, nom }) {
+  const smtp = getTransporter();
+  if (!smtp) {
+    const error = new Error('Configuration SMTP incomplète');
+    error.code = 'SMTP_NOT_CONFIGURED';
+    throw error;
+  }
+
+  await smtp.verify();
+  await smtp.sendMail({
+    from: `"${config.smtp.fromName.replaceAll('"', '')}" <${config.smtp.fromEmail}>`,
+    to,
+    subject: '[PROGAD] Test de configuration SMTP',
+    text: `Bonjour ${nom || ''},\n\nLa configuration SMTP de PROGAD fonctionne correctement.\n\nCet e-mail est un test automatique.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#172033">
+        <div style="padding:20px 24px;background:#1d4ed8;color:#fff;border-radius:12px 12px 0 0">
+          <h2 style="margin:0;font-size:20px">Test SMTP réussi</h2>
+        </div>
+        <div style="padding:24px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px">
+          <p>Bonjour <strong>${escapeHtml(nom || '')}</strong>,</p>
+          <p>La configuration SMTP de <strong>PROGAD-Suivi Impayé</strong> fonctionne correctement.</p>
+          <p style="margin-top:24px;color:#64748b;font-size:12px">Cet e-mail est un test automatique.</p>
+        </div>
+      </div>`,
+  });
+
+  return { sent: true, to };
+}

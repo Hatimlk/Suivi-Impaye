@@ -147,6 +147,7 @@ export const api = {
   },
   deleteAuditLog: (id: string) =>
     request<any>(`/admin/audit-logs/${id}`, { method: 'DELETE' }),
+  testSmtp: () => request<{ sent: boolean; to: string }>('/admin/smtp/test', { method: 'POST' }),
 
   // Import
   importExcel: (file: File) => {
