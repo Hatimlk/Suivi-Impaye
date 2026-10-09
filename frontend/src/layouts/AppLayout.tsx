@@ -176,7 +176,7 @@ export function AppLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Desktop & Mobile Header Bar */}
-        <header className="flex items-center justify-between px-5 py-3.5 bg-white border-b border-gray-200/80 shadow-2xs">
+        <header className="flex items-center justify-between gap-2 px-3 py-3 sm:px-5 sm:py-3.5 bg-white border-b border-gray-200/80 shadow-2xs">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -186,7 +186,7 @@ export function AppLayout() {
               <Menu className="w-5 h-5" />
             </button>
             <div>
-              <h2 className="text-lg font-bold text-gray-900 tracking-tight">Espace de Gestion</h2>
+              <h2 className="text-base font-bold text-gray-900 tracking-tight sm:text-lg">Espace de Gestion</h2>
               <p className="text-xs text-gray-500 hidden sm:block">Dernière mise à jour: Aujourd'hui</p>
             </div>
           </div>
@@ -328,7 +328,7 @@ export function AppLayout() {
         </header>
 
         {/* Dynamic page outlet */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-2.5 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
           <Outlet />
         </main>
       </div>

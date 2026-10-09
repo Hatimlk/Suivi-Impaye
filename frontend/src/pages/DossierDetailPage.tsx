@@ -190,13 +190,13 @@ export default function DossierDetailPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">Dossier impayé</p>
-              <h1 className="truncate text-xl font-bold tracking-tight text-gray-950 sm:text-2xl">{dossier.nom_tire}</h1>
-              <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 shadow-xs">
+              <h1 className="break-words text-xl font-bold tracking-tight text-gray-950 sm:truncate sm:text-2xl">{dossier.nom_tire}</h1>
+              <div className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 shadow-xs">
                 <Hash className="h-3.5 w-3.5 text-gray-400" />
-                <span className="font-mono">{dossier.numero_valeur}</span>
+                <span className="truncate font-mono">{dossier.numero_valeur}</span>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
               <StatusBadge statut={dossier.statut} />
               {user?.role !== 'lecture_seule' && (
                 <Button variant="outline" size="sm" onClick={() => setShowStatutChange(!showStatutChange)}>
@@ -207,7 +207,7 @@ export default function DossierDetailPage() {
           </div>
           {showStatutChange && (
             <div className="mt-4 space-y-3 rounded-xl border border-brand-100 bg-white/90 p-3 shadow-xs">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 min-[420px]:flex-row min-[420px]:items-center">
                 <div className="flex-1">
                   <Select value={newStatut} onChange={(e) => setNewStatut(e.target.value)}>
                     {statutsRef.map((s) => (

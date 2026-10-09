@@ -276,6 +276,30 @@ export default function CommercialPage() {
         ) : dossiers.length === 0 ? (
           <EmptyState icon={<FileText className="w-6 h-6" />} title="Aucun dossier assigné" />
         ) : (
+          <>
+          <div className="divide-y divide-gray-100 md:hidden">
+            {dossiers.map((d) => {
+              const days = joursDepuis(d.date_echeance || d.date_saisie);
+              return (
+                <button key={d.id} type="button" onClick={() => navigate(`/dossiers/${d.id}`)} className="block w-full px-4 py-4 text-left transition active:bg-brand-50">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-gray-950">{d.nom_tire}</p>
+                      <p className="mt-1 truncate font-mono text-[11px] text-gray-500">{d.numero_valeur}</p>
+                    </div>
+                    <StatusBadge statut={d.statut} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div><span className="block text-gray-400">Montant</span><span className="font-mono font-bold text-gray-900">{formatMontant(d.montant)}</span></div>
+                    <div><span className="block text-gray-400">Banque</span><span className="font-medium text-gray-700">{d.banque}</span></div>
+                    <div><span className="block text-gray-400">Date facture</span><span className="font-medium text-gray-700">{d.date_facture ? formatDate(d.date_facture) : '-'}</span></div>
+                    <div><span className="block text-gray-400">Retard</span><span className={cn('font-semibold', days >= 30 ? 'text-red-600' : days >= 7 ? 'text-amber-600' : 'text-gray-700')}>{days}j</span></div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div className="hidden md:block">
           <Table>
             <Thead>
               <tr>
@@ -329,6 +353,8 @@ export default function CommercialPage() {
               ))}
             </Tbody>
           </Table>
+          </div>
+          </>
         )}
 
         <Pagination page={page} totalPages={totalPages} onChange={setPage} />
