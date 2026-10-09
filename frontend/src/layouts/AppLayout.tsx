@@ -115,8 +115,8 @@ export function AppLayout() {
       >
         {/* Brand Header */}
         <div className="p-5 flex items-center gap-3 border-b border-slate-800/80">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-brand-600/30">
-            <ShieldCheck className="w-6 h-6 text-white" />
+          <div className="h-10 w-10 overflow-hidden rounded-xl bg-white shadow-md shadow-brand-600/20 ring-1 ring-white/10">
+            <img src="/Asset%207@4x.png" alt="Logo PROGAD" className="h-full w-full object-cover" />
           </div>
           <div>
             <h1 className="text-base font-bold text-white tracking-wide">PROGAD</h1>

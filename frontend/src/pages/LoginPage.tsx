@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Input, Button } from '../components/ui';
-import { Lock, Mail, AlertCircle, Eye, EyeOff, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, Mail, AlertCircle, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -33,10 +33,7 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-md">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-600/30">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
-          <p className="mt-3 text-xl font-black tracking-wide text-slate-950">PROGAD</p>
+          <img src="/Asset%206@4x.png" alt="PROGAD by GADIMAT" className="h-auto w-64 max-w-[78vw] object-contain" />
           <p className="text-xs font-medium text-slate-500">Suivi Impayé</p>
         </div>
 
