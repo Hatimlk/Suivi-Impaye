@@ -4,8 +4,19 @@ import {
   parseCommercialMap,
   resolveCommercialName,
 } from '../src/services/erpCommercial.js';
+import { normalizeCommercialIdentity } from '../src/services/commercialIdentity.js';
 
 describe('commercial ERP', () => {
+  it('matches ERP short names with full commercial account names', () => {
+    expect(normalizeCommercialIdentity('Fahd BOUNAGA')).toBe('FAHD');
+    expect(normalizeCommercialIdentity('Fayçal EL FIDAAI')).toBe('FAYCAL');
+    expect(normalizeCommercialIdentity('Lahcen ATOUBI')).toBe('LAHCEN');
+    expect(normalizeCommercialIdentity('Naouafal AMAAZOUL')).toBe('NAOUFAL');
+    expect(normalizeCommercialIdentity('Omar BOUKHACHBA')).toBe('OMAR');
+    expect(normalizeCommercialIdentity('Oussama ID TALEB')).toBe('OUSSAMA');
+    expect(normalizeCommercialIdentity('Rachid MOUSSAMIH')).toBe('RACHID');
+  });
+
   it('resolves the commercial IDs confirmed in OpenPROD', () => {
     const map = buildCommercialMap();
     expect(resolveCommercialName({ erp_commercial_id: 34 }, map)).toBe('OUSSAMA');
