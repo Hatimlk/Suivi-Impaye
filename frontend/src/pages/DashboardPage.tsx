@@ -252,7 +252,10 @@ function EvolutionImpayesChart({ stats }: { stats: DashboardStats }) {
       : (stats.evolutionMensuelle || []).map((m) => ({ ...m, label: m.mois, periode: m.mois }));
   } else {
     activeData = stats.evolutionAnnuelle && stats.evolutionAnnuelle.length > 0
-      ? stats.evolutionAnnuelle
+      ? stats.evolutionAnnuelle.filter((point) => {
+          const year = Number(String(point.periode || point.label || '').slice(0, 4));
+          return Number.isFinite(year) && year >= 2019;
+        })
       : [];
   }
 
