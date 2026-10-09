@@ -114,14 +114,8 @@ export function AppLayout() {
         }`}
       >
         {/* Brand Header */}
-        <div className="p-5 flex items-center gap-3 border-b border-slate-800/80">
-          <div className="h-10 w-10 overflow-hidden rounded-xl bg-white shadow-md shadow-brand-600/20 ring-1 ring-white/10">
-            <img src="/Asset%207@4x.png" alt="Logo PROGAD" className="h-full w-full object-cover" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-white tracking-wide">PROGAD</h1>
-            <p className="text-xs text-slate-400 font-medium">Suivi Impayé</p>
-          </div>
+        <div className="flex min-h-[73px] items-center border-b border-slate-800/80 px-5 py-3">
+          <img src="/Asset%2010@4x.png" alt="PROGAD by GADIMAT" className="h-auto w-[184px] object-contain object-left" />
         </div>
 
         {/* Navigation items */}
