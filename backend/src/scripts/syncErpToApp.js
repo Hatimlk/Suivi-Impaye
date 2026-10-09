@@ -45,7 +45,10 @@ try {
   `);
 
   const partnersResult = await erpQuery(`
-    SELECT DISTINCT BTRIM(COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''))) AS nom
+    SELECT DISTINCT REGEXP_REPLACE(
+      BTRIM(COALESCE(NULLIF(p.name, ''), NULLIF(p.display_name, ''))),
+      '\\s+', ' ', 'g'
+    ) AS nom
     FROM account_voucher v
     JOIN res_partner p ON p.id = v.partner_id
     WHERE v.state = 'impaye'

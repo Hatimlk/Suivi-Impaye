@@ -50,7 +50,12 @@ router.post('/', syncLimiter, async (req, res) => {
   if (!parsedPartners.success) {
     return res.status(400).json({ error: 'Donnees partenaires invalides' });
   }
-  const partenaires = parsedPartners.data;
+  const partenaires = Array.from(new Map(
+    parsedPartners.data.map((partner) => {
+      const nom = partner.nom.trim().replace(/\s+/g, ' ');
+      return [nom.toLocaleUpperCase('fr-FR'), { nom }];
+    })
+  ).values());
 
   await ensureErpTrackingTables();
   await ensurePartenairesTable();
