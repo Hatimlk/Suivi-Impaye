@@ -171,7 +171,7 @@ describe('GET /api/auth/me', () => {
 
 describe('POST /api/auth/refresh', () => {
   it('rejects a reused (already rotated) refresh token', async () => {
-    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('FROM refresh_tokens'), respond: () => [] }]));
+    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('DELETE FROM refresh_tokens'), respond: () => [] }]));
     const res = await request(buildApp()).post('/api/auth/refresh').send({ refreshToken: 'old-or-unknown-token' });
     expect(res.status).toBe(401);
   });
@@ -180,9 +180,8 @@ describe('POST /api/auth/refresh', () => {
     const refreshToken = jwt.sign({ id: USERS.commercialA.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
     db.query.mockImplementation(
       fakeQueryImpl([
-        { match: (sql) => sql.includes('FROM refresh_tokens'), respond: () => [{ id: 'row-1', user_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('DELETE FROM refresh_tokens'), respond: () => [{ user_id: USERS.commercialA.id }] },
         { match: (sql) => sql.includes('FROM users WHERE id'), respond: () => [userRow(USERS.commercialA)] },
-        { match: (sql) => sql.includes('DELETE FROM refresh_tokens'), respond: () => [] },
         { match: (sql) => sql.includes('INSERT INTO refresh_tokens'), respond: () => [] },
       ])
     );
@@ -190,8 +189,37 @@ describe('POST /api/auth/refresh', () => {
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
     expect(res.body.refreshToken).toBeTruthy();
+    expect(res.body.refreshToken).not.toBe(refreshToken);
     // The used token must be invalidated (rotation) so it can't be replayed.
     expect(db.query.mock.calls.some(([sql]) => sql.includes('DELETE FROM refresh_tokens'))).toBe(true);
+  });
+
+  it('issues distinct refresh tokens for concurrent sessions created in the same second', async () => {
+    const firstSource = jwt.sign(
+      { id: USERS.commercialA.id, jti: 'source-1' },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    const secondSource = jwt.sign(
+      { id: USERS.commercialA.id, jti: 'source-2' },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('DELETE FROM refresh_tokens'), respond: () => [{ user_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('FROM users WHERE id'), respond: () => [userRow(USERS.commercialA)] },
+        { match: (sql) => sql.includes('INSERT INTO refresh_tokens'), respond: () => [] },
+      ])
+    );
+    const app = buildApp();
+    const [first, second] = await Promise.all([
+      request(app).post('/api/auth/refresh').send({ refreshToken: firstSource }),
+      request(app).post('/api/auth/refresh').send({ refreshToken: secondSource }),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(first.body.refreshToken).not.toBe(second.body.refreshToken);
   });
 });
 

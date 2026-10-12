@@ -3,7 +3,10 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const dbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye';
+const rawDbUrl = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/suivi_impaye';
+// node-postgres annonce un changement futur de sémantique pour `sslmode=require`.
+// La valeur explicite conserve la vérification complète et supprime l'avertissement.
+const dbUrl = rawDbUrl.replace(/([?&])sslmode=require(?=&|$)/i, '$1sslmode=verify-full');
 const isSslNeeded = dbUrl.includes('neon.tech') || dbUrl.includes('sslmode=require') || process.env.NODE_ENV === 'production';
 
 const pool = new pg.Pool({

@@ -23,7 +23,13 @@ function hashToken(token) {
 }
 
 async function issueRefreshToken(userId) {
-  const refreshToken = jwt.sign({ id: userId }, config.jwtRefreshSecret, { expiresIn: config.jwtRefreshExpiresIn });
+  // `jti` garantit un jeton différent même lorsque plusieurs renouvellements
+  // sont créés pour le même utilisateur pendant la même seconde.
+  const refreshToken = jwt.sign(
+    { id: userId, jti: crypto.randomUUID() },
+    config.jwtRefreshSecret,
+    { expiresIn: config.jwtRefreshExpiresIn }
+  );
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
   await query(
@@ -91,18 +97,22 @@ router.post('/refresh', validate(refreshTokenBodySchema), async (req, res) => {
   try {
     const { refreshToken } = req.validated;
     const tokenHash = hashToken(refreshToken);
-    const result = await query(
-      'SELECT * FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
+    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
+
+    // Consommation atomique : si deux onglets renouvellent la même session au
+    // même moment, un seul peut supprimer/réutiliser l'ancien jeton.
+    const consumed = await query(
+      `DELETE FROM refresh_tokens
+       WHERE token = $1 AND expires_at > NOW()
+       RETURNING user_id`,
       [tokenHash]
     );
-    if (result.rows.length === 0) {
+    if (consumed.rows.length === 0 || String(consumed.rows[0].user_id) !== String(decoded.id)) {
       return res.status(401).json({ error: 'Refresh token invalide ou expiré' });
     }
 
-    const decoded = jwt.verify(refreshToken, config.jwtRefreshSecret);
     const userResult = await query('SELECT * FROM users WHERE id = $1 AND actif = true', [decoded.id]);
     if (userResult.rows.length === 0) {
-      await query('DELETE FROM refresh_tokens WHERE token = $1', [tokenHash]);
       return res.status(401).json({ error: 'Utilisateur introuvable ou désactivé' });
     }
 
@@ -114,8 +124,7 @@ router.post('/refresh', validate(refreshTokenBodySchema), async (req, res) => {
       role: user.role,
     };
 
-    // Rotation : le refresh token utilisé est invalidé et remplacé
-    await query('DELETE FROM refresh_tokens WHERE token = $1', [tokenHash]);
+    // Rotation : le refresh token utilisé a été invalidé atomiquement ci-dessus.
     const newAccessToken = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
     const newRefreshToken = await issueRefreshToken(user.id);
 
