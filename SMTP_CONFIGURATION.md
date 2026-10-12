@@ -19,3 +19,5 @@ APP_URL=https://adresse-de-l-application.vercel.app
   compris dans ce fichier.
 
 Une notification est envoyée au commercial affecté lorsqu’un autre utilisateur ajoute une action au dossier. L’auteur ne reçoit pas de notification s’il commente son propre dossier. Une panne SMTP ne bloque pas l’enregistrement de l’action.
+
+Lorsqu’une action possède une date limite et que cette date est dépassée, PROGAD envoie automatiquement un seul e-mail de rappel à l’utilisateur qui a créé l’action. Le contrôle est exécuté quotidiennement par une tâche Vercel sécurisée avec `CRON_SECRET`. En cas d’échec SMTP, l’envoi sera retenté lors d’une prochaine exécution.

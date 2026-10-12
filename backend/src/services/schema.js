@@ -159,8 +159,13 @@ export function ensureErpTrackingTables() {
         date_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
       ALTER TABLE erp_actions ADD COLUMN IF NOT EXISTS date_rappel DATE;
+      ALTER TABLE erp_actions ADD COLUMN IF NOT EXISTS date_rappel_email_envoye TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE erp_actions ADD COLUMN IF NOT EXISTS date_rappel_email_en_cours TIMESTAMP WITH TIME ZONE;
       CREATE INDEX IF NOT EXISTS idx_erp_actions_voucher ON erp_actions(erp_voucher_id);
       CREATE INDEX IF NOT EXISTS idx_erp_actions_date_rappel ON erp_actions(date_rappel) WHERE date_rappel IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_erp_actions_rappel_email
+        ON erp_actions(date_rappel, date_rappel_email_envoye)
+        WHERE date_rappel IS NOT NULL AND date_rappel_email_envoye IS NULL;
       CREATE INDEX IF NOT EXISTS idx_erp_suivi_commercial ON erp_dossier_suivi(commercial_id);
 
       CREATE TABLE IF NOT EXISTS notifications (

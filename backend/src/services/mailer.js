@@ -111,3 +111,54 @@ export async function sendSmtpTestEmail({ to, nom }) {
 
   return { sent: true, to };
 }
+
+export async function sendActionDeadlineReminder({ user, dossier, action }) {
+  const smtp = getTransporter();
+  if (!smtp) {
+    const error = new Error('Configuration SMTP incomplète');
+    error.code = 'SMTP_NOT_CONFIGURED';
+    throw error;
+  }
+
+  const dossierUrl = `${config.appUrl.replace(/\/$/, '')}/dossiers/erp-${dossier.erp_voucher_id}`;
+  const deadline = new Date(`${action.date_rappel}T12:00:00Z`).toLocaleDateString('fr-FR');
+  const safeContent = escapeHtml(action.contenu).replaceAll('\n', '<br>');
+
+  await smtp.sendMail({
+    from: `"${config.smtp.fromName.replaceAll('"', '')}" <${config.smtp.fromEmail}>`,
+    to: user.email,
+    subject: `[PROGAD] Date limite dépassée - ${dossier.nom_tire || dossier.numero_valeur}`,
+    text: [
+      `Bonjour ${user.nom},`,
+      '',
+      `La date limite du ${deadline} est dépassée pour l'action suivante :`,
+      `Client : ${dossier.nom_tire || '-'}`,
+      `N° valeur : ${dossier.numero_valeur || '-'}`,
+      `Type : ${action.type_action}`,
+      '',
+      action.contenu,
+      '',
+      `Consulter le dossier : ${dossierUrl}`,
+    ].join('\n'),
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033">
+        <div style="padding:20px 24px;background:#dc2626;color:#fff;border-radius:12px 12px 0 0">
+          <h2 style="margin:0;font-size:20px">Date limite dépassée</h2>
+        </div>
+        <div style="padding:24px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 12px 12px">
+          <p>Bonjour <strong>${escapeHtml(user.nom)}</strong>,</p>
+          <p>La date limite du <strong>${escapeHtml(deadline)}</strong> est dépassée pour votre action.</p>
+          <div style="padding:14px 16px;background:#f8fafc;border-radius:8px;margin:18px 0">
+            <div><strong>Client :</strong> ${escapeHtml(dossier.nom_tire || '-')}</div>
+            <div style="margin-top:6px"><strong>N° valeur :</strong> ${escapeHtml(dossier.numero_valeur || '-')}</div>
+            <div style="margin-top:6px"><strong>Type :</strong> ${escapeHtml(action.type_action)}</div>
+          </div>
+          <div style="padding:16px;border-left:4px solid #dc2626;background:#fef2f2;margin-bottom:22px">${safeContent}</div>
+          <a href="${escapeHtml(dossierUrl)}" style="display:inline-block;padding:11px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold">Consulter le dossier</a>
+          <p style="margin-top:24px;color:#64748b;font-size:12px">Rappel automatique — PROGAD-Suivi Impayé</p>
+        </div>
+      </div>`,
+  });
+
+  return { sent: true, to: user.email };
+}
