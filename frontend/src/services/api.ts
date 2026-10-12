@@ -1,5 +1,36 @@
 const API_BASE = (import.meta as any).env?.VITE_API_URL || '/api';
 
+type RefreshResponse = { accessToken: string; refreshToken?: string };
+
+// Une seule rotation de session peut être active dans l'onglet. Toutes les
+// requêtes ayant reçu 401 attendent la même promesse puis sont rejouées.
+let refreshPromise: Promise<RefreshResponse> | null = null;
+
+function refreshSession(): Promise<RefreshResponse> {
+  if (!refreshPromise) {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return Promise.reject(new Error('Aucun refresh token'));
+
+    refreshPromise = fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Session expirée');
+        const data = await response.json() as RefreshResponse;
+        localStorage.setItem('accessToken', data.accessToken);
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
+        return data;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('accessToken');
   const headers: Record<string, string> = {
@@ -17,25 +48,14 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     const refreshToken = localStorage.getItem('refreshToken');
     if (refreshToken && !url.includes('/auth/')) {
       try {
-        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken }),
-        });
-        if (refreshRes.ok) {
-          const data = await refreshRes.json();
-          localStorage.setItem('accessToken', data.accessToken);
-          if (data.refreshToken) {
-            localStorage.setItem('refreshToken', data.refreshToken);
-          }
-          headers['Authorization'] = `Bearer ${data.accessToken}`;
-          const retryRes = await fetch(`${API_BASE}${url}`, { ...options, headers });
-          if (!retryRes.ok) {
-            const err = await retryRes.json().catch(() => ({ error: 'Erreur serveur' }));
-            throw new Error(err.error || `Erreur ${retryRes.status}`);
-          }
-          return retryRes.json();
+        const data = await refreshSession();
+        headers['Authorization'] = `Bearer ${data.accessToken}`;
+        const retryRes = await fetch(`${API_BASE}${url}`, { ...options, headers });
+        if (!retryRes.ok) {
+          const err = await retryRes.json().catch(() => ({ error: 'Erreur serveur' }));
+          throw new Error(err.error || `Erreur ${retryRes.status}`);
         }
+        return retryRes.json();
       } catch {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
