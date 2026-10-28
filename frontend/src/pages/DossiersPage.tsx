@@ -31,6 +31,7 @@ export default function DossiersPage() {
   const [searchInput, setSearchInput] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sortField, setSortField] = useState<'date_facture' | 'date_echeance'>('date_facture');
   const [sortOrder, setSortOrder] = useState<'DESC' | 'ASC'>('DESC');
 
   const [commerciaux, setCommerciaux] = useState<{ id: string; nom: string }[]>([]);
@@ -70,7 +71,7 @@ export default function DossiersPage() {
         page: String(page),
         limit: '15',
         search,
-        sort: 'date_facture',
+        sort: sortField,
         order: sortOrder,
         ...filters,
       };
@@ -83,7 +84,7 @@ export default function DossiersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filters, sortOrder]);
+  }, [page, search, filters, sortField, sortOrder]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -207,6 +208,16 @@ export default function DossiersPage() {
     setPage(1);
   };
 
+  const toggleSort = (field: 'date_facture' | 'date_echeance') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC');
+    } else {
+      setSortField(field);
+      setSortOrder('DESC');
+    }
+    setPage(1);
+  };
+
   const hasFilters = Object.keys(filters).length > 0 || search.length > 0;
   const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
   return (
@@ -241,14 +252,6 @@ export default function DossiersPage() {
             <Filter className="w-4 h-4" />
             <span className="hidden sm:inline">Filtres</span>
             {activeFilterCount > 0 && <Badge tone="brand">{activeFilterCount}</Badge>}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setSortOrder(sortOrder === 'DESC' ? 'ASC' : 'DESC')}
-            title="Trier par date"
-          >
-            <ArrowUpDown className="w-4 h-4" />
-            <span className="hidden sm:inline">Date {sortOrder === 'DESC' ? '↓' : '↑'}</span>
           </Button>
           {hasFilters && (
             <Button variant="danger" onClick={clearFilters}>
@@ -400,14 +403,32 @@ export default function DossiersPage() {
           <Table>
             <Thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
               <tr>
-                <Th>Date de facture</Th>
+                <Th
+                  className="cursor-pointer select-none hover:text-gray-700"
+                  onClick={() => toggleSort('date_facture')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Date de facture
+                    <ArrowUpDown className="w-3 h-3" />
+                    {sortField === 'date_facture' && (sortOrder === 'DESC' ? '↓' : '↑')}
+                  </span>
+                </Th>
+                <Th
+                  className="cursor-pointer select-none hover:text-gray-700"
+                  onClick={() => toggleSort('date_echeance')}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    Échéance
+                    <ArrowUpDown className="w-3 h-3" />
+                    {sortField === 'date_echeance' && (sortOrder === 'DESC' ? '↓' : '↑')}
+                  </span>
+                </Th>
                 <Th>Banque</Th>
                 <Th align="right">Montant</Th>
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
                 <Th className="hidden xl:table-cell">Porteur</Th>
-                <Th className="hidden 2xl:table-cell">Observation</Th>
                 <Th className="hidden xl:table-cell">Relation</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>
@@ -433,6 +454,7 @@ export default function DossiersPage() {
                   }}
                 >
                   <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
+                  <Td>{d.date_echeance ? formatDate(d.date_echeance) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
                   <Td>
@@ -451,9 +473,6 @@ export default function DossiersPage() {
                     title={d.porteur || getPorteur(d.nom_tire, d.relation)}
                   >
                     {d.porteur || getPorteur(d.nom_tire, d.relation)}
-                  </Td>
-                  <Td className="hidden max-w-[260px] truncate text-gray-600 2xl:table-cell" title={d.observations || ''}>
-                    {d.observations?.split(' | Date facture :')[0] || ''}
                   </Td>
                   <Td className="hidden text-gray-600 xl:table-cell">{d.relation === 'CD' ? 'CD' : 'CDC'}</Td>
                   <Td className="text-gray-600 max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
