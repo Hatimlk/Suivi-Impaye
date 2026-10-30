@@ -257,6 +257,7 @@ router.get('/alerts', async (req, res) => {
         ${base}
         JOIN erp_actions a ON a.erp_voucher_id = v.erp_voucher_id
         ${where} AND a.date_rappel < CURRENT_DATE
+          AND COALESCE(s.statut, 'Attente retour du client') <> 'Contentieux'
         ORDER BY a.date_rappel, v.nom_tire`, params),
       query(`SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
           s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
@@ -264,12 +265,13 @@ router.get('/alerts', async (req, res) => {
           FLOOR(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.date_derniere_action, v.synced_at))) / 86400)::int AS jours_sans_action
         ${base} ${where}
           AND COALESCE(s.date_derniere_action, v.synced_at) < NOW() - INTERVAL '7 days'
+          AND COALESCE(s.statut, 'Attente retour du client') <> 'Contentieux'
         ORDER BY COALESCE(s.date_derniere_action, v.synced_at)`, params),
       query(`SELECT v.*, s.statut AS suivi_statut, s.observations AS suivi_observations,
           s.commercial_id, s.date_derniere_action, s.date_creation AS suivi_date_creation,
           s.date_derniere_modification, u.nom AS suivi_commercial_nom
         ${base} ${where}
-          AND COALESCE(s.statut, 'Attente retour du client') IN ('Contentieux', 'Pré-contentieux')
+          AND COALESCE(s.statut, 'Attente retour du client') = 'Pré-contentieux'
         ORDER BY v.montant DESC`, params),
     ]);
     res.json({
@@ -445,7 +447,7 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
     if (dossierResult.rows[0]) {
       const dossier = mapDossier(dossierResult.rows[0]);
       const commercial = await findEffectiveCommercial(dossier);
-      if (commercial && commercial.id !== req.user.id) {
+      if (commercial && commercial.id !== req.user.id && dossier.statut !== 'Contentieux') {
         await query(
           `INSERT INTO notifications (user_id, erp_voucher_id, action_id, titre, message)
            VALUES ($1, $2, $3, $4, $5)`,

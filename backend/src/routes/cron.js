@@ -18,12 +18,14 @@ router.get('/action-reminders', async (req, res) => {
       FROM erp_actions a
       JOIN users auteur ON auteur.id = a.auteur_id
       JOIN erp_impayes_snapshot v ON v.erp_voucher_id = a.erp_voucher_id
+      LEFT JOIN erp_dossier_suivi s ON s.erp_voucher_id = a.erp_voucher_id
       WHERE a.date_rappel < CURRENT_DATE
         AND a.date_rappel_email_envoye IS NULL
         AND (a.date_rappel_email_en_cours IS NULL OR a.date_rappel_email_en_cours < NOW() - INTERVAL '1 hour')
         AND auteur.actif = true
         AND NULLIF(BTRIM(auteur.email), '') IS NOT NULL
         AND v.actif = true
+        AND COALESCE(s.statut, 'Attente retour du client') <> 'Contentieux'
       ORDER BY a.date_rappel, a.date_action
       LIMIT 100
       FOR UPDATE OF a SKIP LOCKED

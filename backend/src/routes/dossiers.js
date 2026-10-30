@@ -246,17 +246,18 @@ router.get('/alerts', async (req, res) => {
        ${whereBase ? whereBase + ' AND' : 'WHERE'}
        (d.date_derniere_action < NOW() - INTERVAL '${thresholdDays} days'
        OR (d.date_derniere_action IS NULL AND d.date_creation < NOW() - INTERVAL '${thresholdDays} days'))
+       AND d.statut <> 'Contentieux'
        ORDER BY d.date_derniere_action ASC NULLS FIRST`,
       params
     );
 
-    // Dossiers contentieux / pré-contentieux
+    // Dossiers pré-contentieux
     const contentieuxResult = await query(
       `SELECT d.*, u.nom as commercial_nom
        FROM dossiers d
        LEFT JOIN users u ON d.commercial_id = u.id
        ${whereBase ? whereBase + ' AND' : 'WHERE'}
-       d.statut IN ('Contentieux', 'Pré-contentieux')
+       d.statut = 'Pré-contentieux'
        ORDER BY d.montant DESC`,
       params
     );
