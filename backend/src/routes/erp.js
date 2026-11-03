@@ -447,18 +447,22 @@ router.post('/impayes/:id/actions', validate(createActionSchema), async (req, re
     if (dossierResult.rows[0]) {
       const dossier = mapDossier(dossierResult.rows[0]);
       const commercial = await findEffectiveCommercial(dossier);
-      if (commercial && commercial.id !== req.user.id && dossier.statut !== 'Contentieux') {
-        await query(
-          `INSERT INTO notifications (user_id, erp_voucher_id, action_id, titre, message)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [
-            commercial.id,
-            id,
-            result.rows[0].id,
-            req.validated.type_action === 'relance' ? 'Nouvelle relance' : 'Nouvelle action',
-            `${req.user.nom || 'Un utilisateur'} : ${req.validated.contenu}`,
-          ]
-        );
+      if (commercial) {
+        // Conserver les notifications internes existantes pour les actions d'un tiers,
+        // mais envoyer l'e-mail au commercial pour chaque commentaire, y compris le sien.
+        if (commercial.id !== req.user.id && dossier.statut !== 'Contentieux') {
+          await query(
+            `INSERT INTO notifications (user_id, erp_voucher_id, action_id, titre, message)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              commercial.id,
+              id,
+              result.rows[0].id,
+              req.validated.type_action === 'relance' ? 'Nouvelle relance' : 'Nouvelle action',
+              `${req.user.nom || 'Un utilisateur'} : ${req.validated.contenu}`,
+            ]
+          );
+        }
         if (commercial.email) {
           await sendCommercialActionNotification({
             commercial,

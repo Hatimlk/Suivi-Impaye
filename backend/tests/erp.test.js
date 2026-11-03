@@ -4,7 +4,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeQueryImpl, USERS, authHeader } from './helpers.js';
 
 const db = vi.hoisted(() => ({ query: vi.fn(async () => ({ rows: [] })) }));
+const mailer = vi.hoisted(() => ({ sendCommercialActionNotification: vi.fn() }));
 vi.mock('../src/config/db.js', () => ({ query: db.query, getClient: vi.fn() }));
+vi.mock('../src/services/mailer.js', () => mailer);
 
 const erpRouter = (await import('../src/routes/erp.js')).default;
 
@@ -318,6 +320,28 @@ describe('POST /api/erp/impayes/:id/actions', () => {
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ contenu: 'hello' });
     expect(res.status).toBe(201);
+  });
+
+  it('emails the assigned commercial for their own comment, including a contentieux dossier', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('SELECT s.commercial_id, v.erp_commercial_nom'), respond: () => [{ commercial_id: USERS.commercialA.id }] },
+        { match: (sql) => sql.includes('INSERT INTO erp_actions'), respond: () => [{ id: 'a1', erp_voucher_id: 42, contenu: 'Point contentieux', type_action: 'commentaire' }] },
+        { match: (sql) => sql.includes('SELECT a.*'), respond: () => [{ id: 'a1', erp_voucher_id: 42, auteur_nom: USERS.commercialA.nom }] },
+        { match: (sql) => sql.includes('SELECT v.*, s.statut AS suivi_statut'), respond: () => [snapshotRow({ suivi_statut: 'Contentieux' })] },
+        { match: (sql) => sql.includes('SELECT id, nom, email FROM users WHERE id'), respond: () => [USERS.commercialA] },
+      ])
+    );
+
+    const res = await request(buildApp())
+      .post('/api/erp/impayes/erp-42/actions')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .send({ contenu: 'Point contentieux' });
+
+    expect(res.status).toBe(201);
+    expect(mailer.sendCommercialActionNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ commercial: expect.objectContaining({ email: USERS.commercialA.email }) })
+    );
   });
 
   it('stores an optional calendar deadline with the action', async () => {

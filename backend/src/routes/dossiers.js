@@ -922,8 +922,8 @@ router.post('/:id/actions', validate(createActionSchema), async (req, res) => {
 
     await logAudit(req.user.id, req.params.id, 'action', { action_id: result.rows[0].id, type_action });
 
-    // Notifier le commercial affecté lorsqu'un autre utilisateur ajoute une action.
-    if (dossier.commercial_id && dossier.commercial_id !== req.user.id) {
+    // Notifier le commercial affecté pour chaque commentaire, quel que soit son auteur.
+    if (dossier.commercial_id) {
       const commercialResult = await query(
         "SELECT nom, email FROM users WHERE id = $1 AND actif = true AND role = 'commercial'",
         [dossier.commercial_id]

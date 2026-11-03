@@ -2,14 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { formatMontant, formatDate, joursDepuis, cn } from '../utils';
+import { formatMontant, formatDate, joursDepuis, getPorteur, cn } from '../utils';
 import type { Dossier, DashboardStats } from '../types';
 import { CHART_INK, CATEGORICAL } from '../utils/chartColors';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  Eye, Clock, TrendingUp, AlertTriangle, FileText, RefreshCw, Search, Filter, X,
+  Eye, Clock, TrendingUp, AlertTriangle, FileText, RefreshCw, Search, Filter, X, ArrowUpDown,
 } from 'lucide-react';
 import {
   Card, KpiCard, Table, Thead, Tbody, Tr, Th, Td, StatusBadge, Pagination,
@@ -32,13 +32,16 @@ export default function CommercialPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sortField, setSortField] = useState<'date_facture' | 'date_echeance'>('date_echeance');
+  const [sortOrder, setSortOrder] = useState<'DESC' | 'ASC'>('DESC');
   const [filterOptions, setFilterOptions] = useState<{
     partenaires: string[];
+    commerciaux: { id: string; nom: string }[];
     banques: string[];
     statuts: string[];
-  }>({ partenaires: [], banques: [], statuts: [] });
+  }>({ partenaires: [], commerciaux: [], banques: [], statuts: [] });
 
   const loadDossiers = useCallback(async () => {
     try {
@@ -46,8 +49,8 @@ export default function CommercialPage() {
       const res = await api.getDossiers({
         page: String(page),
         limit: '10',
-        sort: 'date_facture',
-        order: 'DESC',
+        sort: sortField,
+        order: sortOrder,
         search,
         ...filters,
       });
@@ -59,7 +62,7 @@ export default function CommercialPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filters]);
+  }, [page, search, filters, sortField, sortOrder]);
 
   useEffect(() => {
     loadDossiers();
@@ -77,6 +80,7 @@ export default function CommercialPage() {
     api.getErpFilters()
       .then((result) => setFilterOptions({
         partenaires: result.partenaires || [],
+        commerciaux: result.commerciaux || [],
         banques: result.banques || [],
         statuts: result.statuts || [],
       }))
@@ -109,6 +113,16 @@ export default function CommercialPage() {
   };
 
   const activeFilterCount = Object.keys(filters).length + (search ? 1 : 0);
+
+  const toggleDeadlineSort = () => {
+    if (sortField === 'date_echeance') {
+      setSortOrder((current) => current === 'DESC' ? 'ASC' : 'DESC');
+    } else {
+      setSortField('date_echeance');
+      setSortOrder('DESC');
+    }
+    setPage(1);
+  };
 
   const dormantsCount = stats?.dossiersDormants || 0;
   const contentieuxCount = stats?.parStatut?.find((s) => s.statut === 'Contentieux')?.count || 0;
@@ -207,7 +221,7 @@ export default function CommercialPage() {
       <Card padding="none" className="overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Mes dossiers récents ({total})</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Mes Dossiers ({total})</h2>
             <p className="mt-0.5 text-xs text-gray-500">Recherche et filtres limités à vos dossiers affectés</p>
           </div>
           <button
@@ -240,6 +254,10 @@ export default function CommercialPage() {
               Filtres
               {activeFilterCount > 0 && <Badge tone="brand">{activeFilterCount}</Badge>}
             </Button>
+            <Button variant="outline" onClick={toggleDeadlineSort} title="Trier par échéance">
+              <ArrowUpDown className="h-4 w-4" />
+              Échéance {sortField === 'date_echeance' ? (sortOrder === 'DESC' ? '↓' : '↑') : ''}
+            </Button>
             {activeFilterCount > 0 && (
               <Button variant="danger" onClick={clearFilters} title="Effacer les filtres">
                 <X className="h-4 w-4" />
@@ -249,23 +267,27 @@ export default function CommercialPage() {
           </div>
 
           {showFilters && (
-            <div className="mt-3 grid grid-cols-1 gap-3 border-t border-gray-200 pt-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-3 grid grid-cols-1 gap-3 border-t border-gray-200 pt-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
               <Select label="Partenaire" value={filters.nom_tire || ''} onChange={(event) => setFilter('nom_tire', event.target.value)}>
                 <option value="">Tous les partenaires</option>
                 {filterOptions.partenaires.map((partner) => <option key={partner} value={partner}>{partner}</option>)}
               </Select>
-              <Select label="Banque" value={filters.banque || ''} onChange={(event) => setFilter('banque', event.target.value)}>
-                <option value="">Toutes les banques</option>
-                {filterOptions.banques.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+              <Select label="Commercial" value={filters.commercial_id || ''} onChange={(event) => setFilter('commercial_id', event.target.value)}>
+                <option value="">Tous les commerciaux</option>
+                {filterOptions.commerciaux.map((commercial) => <option key={commercial.id} value={commercial.id}>{commercial.nom}</option>)}
               </Select>
               <Select label="Statut" value={filters.statut || ''} onChange={(event) => setFilter('statut', event.target.value)}>
                 <option value="">Tous les statuts</option>
                 {filterOptions.statuts.map((status) => <option key={status} value={status}>{status}</option>)}
               </Select>
-              <Select label="Type" value={filters.type_valeur || ''} onChange={(event) => setFilter('type_valeur', event.target.value)}>
-                <option value="">Tous les types</option>
-                <option value="CHQ">Chèque</option>
-                <option value="LCN">Lettre de change</option>
+              <Select label="Banque" value={filters.banque || ''} onChange={(event) => setFilter('banque', event.target.value)}>
+                <option value="">Toutes les banques</option>
+                {filterOptions.banques.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+              </Select>
+              <Select label="Relation" value={filters.relation || ''} onChange={(event) => setFilter('relation', event.target.value)}>
+                <option value="">Toutes les relations</option>
+                <option value="CD">Client Direct (CD)</option>
+                <option value="CDC">Client de Client (CDC)</option>
               </Select>
             </div>
           )}
@@ -304,27 +326,43 @@ export default function CommercialPage() {
             <Thead>
               <tr>
                 <Th>Date de facture</Th>
+                <Th>Échéance</Th>
                 <Th>Banque</Th>
                 <Th align="right">Montant</Th>
+                <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
+                <Th>Porteur</Th>
                 <Th>Observation</Th>
+                <Th>Relation</Th>
+                <Th>Commercial</Th>
                 <Th>Statut</Th>
                 <Th align="center">Jours</Th>
-                <Th></Th>
+                <Th align="center">Actions</Th>
               </tr>
             </Thead>
             <Tbody>
               {dossiers.map((d) => (
                 <Tr key={d.id} className="cursor-pointer" onClick={() => navigate(`/dossiers/${d.id}`)}>
                   <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
+                  <Td>{d.date_echeance ? formatDate(d.date_echeance) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
+                  <Td>
+                    <Badge tone="brand" pill={false} className={d.type_valeur === 'LCN' ? 'bg-violet-100 text-violet-700' : ''}>
+                      {d.type_valeur}
+                    </Badge>
+                  </Td>
                   <Td className="font-mono text-xs">{d.numero_valeur}</Td>
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
+                  <Td className="max-w-[180px] truncate" title={d.porteur || getPorteur(d.nom_tire, d.relation)}>
+                    {d.porteur || getPorteur(d.nom_tire, d.relation)}
+                  </Td>
                   <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
                     {d.observations?.split(' | Date facture :')[0] || '-'}
                   </Td>
+                  <Td>{d.relation}</Td>
+                  <Td className="max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
                   <Td><StatusBadge statut={d.statut} /></Td>
                   <Td align="center">
                     <span

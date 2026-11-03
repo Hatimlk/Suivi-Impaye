@@ -4,8 +4,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeQueryImpl, USERS, authHeader } from './helpers.js';
 
 const db = vi.hoisted(() => ({ query: vi.fn(async () => ({ rows: [] })) }));
+const mailer = vi.hoisted(() => ({ sendCommercialActionNotification: vi.fn() }));
 vi.mock('../src/config/db.js', () => ({ query: db.query, getClient: vi.fn() }));
-vi.mock('../src/services/mailer.js', () => ({ sendCommercialActionNotification: vi.fn() }));
+vi.mock('../src/services/mailer.js', () => mailer);
 
 const dossiersRouter = (await import('../src/routes/dossiers.js')).default;
 
@@ -246,6 +247,27 @@ describe('POST /api/dossiers/:id/actions', () => {
       .set('Authorization', authHeader(USERS.lecture))
       .send({ contenu: 'hello' });
     expect(res.status).toBe(403);
+  });
+
+  it('emails the assigned commercial even when they author the comment', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('SELECT * FROM dossiers'), respond: () => [dossierRow()] },
+        { match: (sql) => sql.includes('INSERT INTO actions'), respond: () => [{ id: 'a1', contenu: 'Suivi client', type_action: 'commentaire' }] },
+        { match: (sql) => sql.includes('SELECT a.*, u.nom as auteur_nom'), respond: () => [{ id: 'a1', auteur_nom: USERS.commercialA.nom }] },
+        { match: (sql) => sql.includes("actif = true AND role = 'commercial'"), respond: () => [{ nom: USERS.commercialA.nom, email: USERS.commercialA.email }] },
+      ])
+    );
+
+    const res = await request(buildApp())
+      .post('/api/dossiers/d0000000-0000-0000-0000-000000000001/actions')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .send({ contenu: 'Suivi client' });
+
+    expect(res.status).toBe(201);
+    expect(mailer.sendCommercialActionNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ commercial: expect.objectContaining({ email: USERS.commercialA.email }) })
+    );
   });
 });
 
