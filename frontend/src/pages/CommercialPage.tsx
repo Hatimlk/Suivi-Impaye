@@ -333,7 +333,6 @@ export default function CommercialPage() {
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
                 <Th>Porteur</Th>
-                <Th>Observation</Th>
                 <Th>Relation</Th>
                 <Th>Commercial</Th>
                 <Th>Statut</Th>
@@ -357,9 +356,6 @@ export default function CommercialPage() {
                   <Td className="text-gray-900 font-medium max-w-[200px] truncate">{d.nom_tire}</Td>
                   <Td className="max-w-[180px] truncate" title={d.porteur || getPorteur(d.nom_tire, d.relation)}>
                     {d.porteur || getPorteur(d.nom_tire, d.relation)}
-                  </Td>
-                  <Td className="text-gray-600 max-w-[260px] truncate" title={d.observations || ''}>
-                    {d.observations?.split(' | Date facture :')[0] || '-'}
                   </Td>
                   <Td>{d.relation}</Td>
                   <Td className="max-w-[150px] truncate">{d.commercial_nom || '-'}</Td>
