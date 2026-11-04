@@ -21,6 +21,21 @@ const TABS: { key: Tab; label: string; icon: typeof Users }[] = [
 
 const ROLES: UserRole[] = ['admin', 'responsable_recouvrement', 'commercial', 'lecture_seule'];
 
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  login_success: 'Connexion réussie',
+  login_failed: 'Échec de connexion',
+  login_blocked: 'Connexion bloquée',
+  logout: 'Déconnexion',
+  rate_limited: 'Limite de requêtes',
+  erp_action: 'Action dossier ERP',
+  erp_statut: 'Statut dossier ERP',
+};
+
+function auditDetail(log: AuditLog, key: string) {
+  const value = log.details_json?.[key];
+  return value === null || value === undefined || value === '' ? '-' : String(value);
+}
+
 function ActifBadge({ actif }: { actif: boolean }) {
   return (
     <Badge tone={actif ? 'success' : 'neutral'} pill={false}>
@@ -143,20 +158,6 @@ export default function AdminPage() {
       alert(err.message || "Erreur lors du chargement du journal d'audit");
     } finally {
       setAuditLoading(false);
-    }
-  };
-
-  const handleDeleteAuditLog = async (id: string) => {
-    if (!confirm("Supprimer définitivement cette entrée du journal d'audit ?")) return;
-    try {
-      await api.deleteAuditLog(id);
-      if (auditLogs.length === 1 && auditPage > 1) {
-        setAuditPage((current) => current - 1);
-      } else {
-        await loadAuditLogs();
-      }
-    } catch (err: any) {
-      alert(err.message || "Erreur lors de la suppression de l'entrée d'audit");
     }
   };
 
@@ -763,29 +764,28 @@ export default function AdminPage() {
                   <tr>
                     <Th>Date</Th>
                     <Th>Utilisateur</Th>
-                    <Th>Action</Th>
+                    <Th>Événement</Th>
+                    <Th>Adresse IP</Th>
+                    <Th>Appareil / navigateur</Th>
+                    <Th>Route</Th>
                     <Th>Détails</Th>
-                    <Th align="center">Supprimer</Th>
                   </tr>
                 </Thead>
                 <Tbody>
                   {auditLogs.map((log) => (
                     <Tr key={log.id}>
                       <Td className="text-gray-600 whitespace-nowrap">{formatDateTime(log.date_action)}</Td>
-                      <Td className="text-gray-900 font-medium">{log.utilisateur_nom || '-'}</Td>
-                      <Td><Badge tone="neutral" pill={false}>{log.action_type}</Badge></Td>
-                      <Td className="text-gray-600 max-w-xs truncate">
-                        {Object.keys(log.details_json).length > 0 ? JSON.stringify(log.details_json) : '-'}
+                      <Td className="text-gray-900 font-medium">{log.utilisateur_nom || auditDetail(log, 'email')}</Td>
+                      <Td title={log.action_type}><Badge tone="neutral" pill={false}>{AUDIT_ACTION_LABELS[log.action_type] || log.action_type}</Badge></Td>
+                      <Td className="whitespace-nowrap font-mono text-xs text-gray-700">{auditDetail(log, 'ip')}</Td>
+                      <Td className="max-w-[260px] truncate text-xs text-gray-600" title={auditDetail(log, 'user_agent')}>
+                        {auditDetail(log, 'user_agent')}
                       </Td>
-                      <Td align="center">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAuditLog(log.id)}
-                          className="rounded-md p-1.5 text-gray-400 transition hover:bg-red-50 hover:text-red-600"
-                          title="Supprimer cette entrée"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <Td className="max-w-[220px] truncate font-mono text-xs text-gray-600" title={`${auditDetail(log, 'method')} ${auditDetail(log, 'route')}`}>
+                        {auditDetail(log, 'method')} {auditDetail(log, 'route')}
+                      </Td>
+                      <Td className="text-gray-600 max-w-sm truncate" title={JSON.stringify(log.details_json)}>
+                        {Object.keys(log.details_json).length > 0 ? JSON.stringify(log.details_json) : '-'}
                       </Td>
                     </Tr>
                   ))}

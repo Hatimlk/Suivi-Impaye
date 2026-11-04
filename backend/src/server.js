@@ -13,6 +13,7 @@ import erpSyncRoutes from './routes/erpSync.js';
 import cronRoutes from './routes/cron.js';
 import { query } from './config/db.js';
 import { ipRateLimiter } from './middleware/rateLimiter.js';
+import { auditContextMiddleware } from './middleware/audit.js';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: config.corsOrigin, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+app.use(auditContextMiddleware);
 
 // Rate limiting global (toutes les routes API). Les routes sensibles (login, reset de mot
 // de passe, creation d'utilisateur, webhook ERP) ont leurs propres limites, plus strictes,

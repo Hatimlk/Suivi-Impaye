@@ -87,6 +87,31 @@ describe('POST /api/auth/login', () => {
     expect(insert[1][2]).toBe('login_failed');
     expect(details.email).toBe(USERS.commercialA.email.toLowerCase());
   });
+
+  it('logs a successful login with IP, browser, route and session id', async () => {
+    db.query.mockImplementation(
+      fakeQueryImpl([
+        { match: (sql) => sql.includes('FROM users WHERE email'), respond: () => [userRow(USERS.commercialA)] },
+        { match: (sql) => sql.includes('INSERT INTO refresh_tokens'), respond: () => [] },
+      ])
+    );
+    const res = await request(buildApp())
+      .post('/api/auth/login')
+      .set('X-Forwarded-For', '102.78.241.125')
+      .set('User-Agent', 'Audit-Test-Browser')
+      .send({ email: USERS.commercialA.email, password: PASSWORD });
+
+    expect(res.status).toBe(200);
+    const insert = db.query.mock.calls.find(
+      ([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'login_success'
+    );
+    const details = JSON.parse(insert[1][3]);
+    expect(details.ip).toBe('102.78.241.125');
+    expect(details.user_agent).toBe('Audit-Test-Browser');
+    expect(details.method).toBe('POST');
+    expect(details.route).toBe('/api/auth/login');
+    expect(details.session_id).toBeTruthy();
+  });
 });
 
 describe('POST /api/auth/login — per-account lockout', () => {
@@ -242,6 +267,22 @@ describe('POST /api/auth/logout', () => {
       .set('Authorization', authHeader(USERS.commercialA))
       .send({ refreshToken: { not: 'a string' } });
     expect(res.status).toBe(400);
+  });
+
+  it('writes an immutable audit event for logout', async () => {
+    db.query.mockImplementation(fakeQueryImpl([{ match: (sql) => sql.includes('DELETE FROM refresh_tokens'), respond: () => [] }]));
+    const res = await request(buildApp())
+      .post('/api/auth/logout')
+      .set('Authorization', authHeader(USERS.commercialA))
+      .set('X-Forwarded-For', '102.78.241.125')
+      .send({ refreshToken: 'some-token' });
+
+    expect(res.status).toBe(200);
+    const insert = db.query.mock.calls.find(
+      ([sql, params]) => sql.includes('INSERT INTO audit_logs') && params[2] === 'logout'
+    );
+    expect(insert).toBeTruthy();
+    expect(JSON.parse(insert[1][3]).ip).toBe('102.78.241.125');
   });
 });
 

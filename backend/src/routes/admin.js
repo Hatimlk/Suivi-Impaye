@@ -390,7 +390,7 @@ router.get('/audit-logs', requireRole('admin'), validateQuery(auditLogQuerySchem
     if (dossier_id) { conditions.push(`al.dossier_id = $${idx}`); params.push(dossier_id); idx++; }
     if (action_type) { conditions.push(`al.action_type = $${idx}`); params.push(action_type); idx++; }
     if (date_debut) { conditions.push(`al.date_action >= $${idx}`); params.push(date_debut); idx++; }
-    if (date_fin) { conditions.push(`al.date_action <= $${idx}`); params.push(date_fin); idx++; }
+    if (date_fin) { conditions.push(`al.date_action < ($${idx}::date + INTERVAL '1 day')`); params.push(date_fin); idx++; }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
@@ -409,19 +409,6 @@ router.get('/audit-logs', requireRole('admin'), validateQuery(auditLogQuerySchem
       totalPages: Math.ceil(parseInt(countResult.rows[0].count) / parseInt(limit)),
     });
   } catch (err) {
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-router.delete('/audit-logs/:id', requireRole('admin'), async (req, res) => {
-  try {
-    const existing = await query('SELECT id FROM audit_logs WHERE id = $1', [req.params.id]);
-    if (!existing.rows[0]) return res.status(404).json({ error: "Entrée d'audit introuvable" });
-
-    await query('DELETE FROM audit_logs WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Erreur suppression audit:', err.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

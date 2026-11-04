@@ -20,10 +20,7 @@ export function ipRateLimiter({ windowMs, max, name, message }) {
       const retryAfterSeconds = Math.ceil(options.windowMs / 1000);
       await logAudit(req.user?.id || null, null, 'rate_limited', {
         limiter: name,
-        ip: clientIp(req),
-        route: req.originalUrl,
-        method: req.method,
-      });
+      }, req);
       res.set('Retry-After', String(retryAfterSeconds));
       res.status(429).json({ error: message, retryAfterSeconds });
     },

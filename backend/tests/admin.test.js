@@ -135,6 +135,14 @@ describe('GET /api/admin/audit-logs', () => {
     const res = await request(buildApp()).get('/api/admin/audit-logs').set('Authorization', authHeader(USERS.admin));
     expect(res.status).toBe(200);
   });
+
+  it('does not expose a route that deletes audit evidence', async () => {
+    const res = await request(buildApp())
+      .delete('/api/admin/audit-logs/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', authHeader(USERS.admin));
+    expect(res.status).toBe(404);
+    expect(db.query.mock.calls.some(([sql]) => sql.includes('DELETE FROM audit_logs'))).toBe(false);
+  });
 });
 
 describe('mutating reference-data routes require admin', () => {

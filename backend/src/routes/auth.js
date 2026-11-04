@@ -22,11 +22,11 @@ function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-async function issueRefreshToken(userId) {
+async function issueRefreshToken(userId, sessionId) {
   // `jti` garantit un jeton différent même lorsque plusieurs renouvellements
   // sont créés pour le même utilisateur pendant la même seconde.
   const refreshToken = jwt.sign(
-    { id: userId, jti: crypto.randomUUID() },
+    { id: userId, sid: sessionId, jti: crypto.randomUUID() },
     config.jwtRefreshSecret,
     { expiresIn: config.jwtRefreshExpiresIn }
   );
@@ -46,7 +46,7 @@ router.post('/login', loginIpLimiter, validate(loginSchema), async (req, res) =>
     const ip = clientIp(req);
 
     if (await isAccountLocked(query, email)) {
-      await logAudit(null, null, 'login_blocked', { email, ip });
+      await logAudit(null, null, 'login_blocked', { email, ip }, req);
       return res.status(429).json({
         error: `Trop de tentatives échouées (max ${FAILED_LOGIN_MAX_ATTEMPTS}) pour ce compte. Réessayez dans ${FAILED_LOGIN_WINDOW_MINUTES} minutes.`,
         retryAfterSeconds: FAILED_LOGIN_WINDOW_MINUTES * 60,
@@ -55,26 +55,29 @@ router.post('/login', loginIpLimiter, validate(loginSchema), async (req, res) =>
 
     const result = await query('SELECT * FROM users WHERE email = $1 AND actif = true', [email]);
     if (result.rows.length === 0) {
-      await logAudit(null, null, 'login_failed', { email, ip, reason: 'unknown_email_or_inactive' });
+      await logAudit(null, null, 'login_failed', { email, ip, reason: 'unknown_email_or_inactive' }, req);
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
     const user = result.rows[0];
     const validPassword = await bcrypt.compare(password, user.mot_de_passe_hash);
     if (!validPassword) {
-      await logAudit(user.id, null, 'login_failed', { email, ip, reason: 'wrong_password' });
+      await logAudit(user.id, null, 'login_failed', { email, ip, reason: 'wrong_password' }, req);
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
+    const sessionId = crypto.randomUUID();
     const tokenPayload = {
       id: user.id,
       email: user.email,
       nom: user.nom,
       role: user.role,
+      sid: sessionId,
     };
 
     const accessToken = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
-    const refreshToken = await issueRefreshToken(user.id);
+    const refreshToken = await issueRefreshToken(user.id, sessionId);
+    await logAudit(user.id, null, 'login_success', { email: user.email, session_id: sessionId }, req);
 
     res.json({
       accessToken,
@@ -117,16 +120,18 @@ router.post('/refresh', validate(refreshTokenBodySchema), async (req, res) => {
     }
 
     const user = userResult.rows[0];
+    const sessionId = decoded.sid || crypto.randomUUID();
     const tokenPayload = {
       id: user.id,
       email: user.email,
       nom: user.nom,
       role: user.role,
+      sid: sessionId,
     };
 
     // Rotation : le refresh token utilisé a été invalidé atomiquement ci-dessus.
     const newAccessToken = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
-    const newRefreshToken = await issueRefreshToken(user.id);
+    const newRefreshToken = await issueRefreshToken(user.id, sessionId);
 
     res.json({ accessToken: newAccessToken, refreshToken: newRefreshToken });
   } catch (err) {
@@ -144,6 +149,7 @@ router.post('/logout', authenticateToken, validate(logoutBodySchema), async (req
       // ne révoque la session d'un autre s'il venait à connaître son refresh token.
       await query('DELETE FROM refresh_tokens WHERE token = $1 AND user_id = $2', [hashToken(refreshToken), req.user.id]);
     }
+    await logAudit(req.user.id, null, 'logout', { email: req.user.email }, req);
     res.json({ message: 'Déconnexion réussie' });
   } catch (err) {
     console.error('Erreur logout:', err);
