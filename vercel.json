@@ -2,7 +2,9 @@
   "buildCommand": "npm install && cd frontend && npm install --include=dev && npm run build",
   "outputDirectory": "frontend/dist",
   "env": {
-    "SMTP_HOST": "mail.infomaniak.com"
+    "SMTP_HOST": "mail.infomaniak.com",
+    "SMTP_PORT": "587",
+    "SMTP_SECURE": "false"
   },
   "crons": [
     {
