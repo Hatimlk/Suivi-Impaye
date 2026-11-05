@@ -65,23 +65,23 @@ router.post('/', syncLimiter, async (req, res) => {
     const run = await client.query(`INSERT INTO erp_sync_runs (received_count) VALUES ($1) RETURNING id`, [impayes.length]);
     await client.query(
       `INSERT INTO erp_impayes_snapshot (
-         erp_voucher_id, date_saisie, date_facture, date_echeance, montant, type_valeur,
+         erp_voucher_id, date_saisie, date_facture, date_echeance, total, montant, type_valeur,
          numero_valeur, nom_tire, porteur, relation, banque, erp_partner_id,
          erp_commercial_nom, actif, synced_at
        )
        SELECT x.erp_voucher_id, x.date_saisie, x.date_facture, x.date_echeance,
-              x.montant, x.type_valeur, x.numero_valeur, x.nom_tire,
+               COALESCE(x.total, x.montant), x.montant, x.type_valeur, x.numero_valeur, x.nom_tire,
               COALESCE(x.porteur, ''), COALESCE(x.relation, 'CD'),
               COALESCE(x.banque, 'Non renseignee'), x.erp_partner_id,
               x.erp_commercial_nom, true, NOW()
        FROM jsonb_to_recordset($1::jsonb) AS x(
          erp_voucher_id integer, date_saisie date, date_facture date, date_echeance date,
-         montant numeric, type_valeur text, numero_valeur text, nom_tire text, porteur text,
+         total numeric, montant numeric, type_valeur text, numero_valeur text, nom_tire text, porteur text,
          relation text, banque text, erp_partner_id integer, erp_commercial_nom text
        )
        ON CONFLICT (erp_voucher_id) DO UPDATE SET
          date_saisie = EXCLUDED.date_saisie, date_facture = EXCLUDED.date_facture,
-         date_echeance = EXCLUDED.date_echeance, montant = EXCLUDED.montant,
+          date_echeance = EXCLUDED.date_echeance, total = EXCLUDED.total, montant = EXCLUDED.montant,
          type_valeur = EXCLUDED.type_valeur, numero_valeur = EXCLUDED.numero_valeur,
          nom_tire = EXCLUDED.nom_tire, porteur = EXCLUDED.porteur,
          relation = EXCLUDED.relation, banque = EXCLUDED.banque,

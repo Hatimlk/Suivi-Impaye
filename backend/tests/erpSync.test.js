@@ -98,10 +98,13 @@ describe('POST /api/erp-sync', () => {
       .set('Authorization', 'Bearer correct-shared-secret')
       .send({
         impayes: [
-          { erp_voucher_id: 1, montant: 100.5, type_valeur: 'CHQ', numero_valeur: 'V-1', nom_tire: 'Client X', date_saisie: '2026-01-01' },
+          { erp_voucher_id: 1, total: 175, montant: 100.5, type_valeur: 'CHQ', numero_valeur: 'V-1', nom_tire: 'Client X', date_saisie: '2026-01-01' },
         ],
       });
     expect(res.status).toBe(200);
+    const snapshotUpsert = db.client.query.mock.calls.find(([sql]) => sql.includes('INSERT INTO erp_impayes_snapshot'));
+    expect(snapshotUpsert[0]).toContain('total, montant');
+    expect(JSON.parse(snapshotUpsert[1][0])[0]).toMatchObject({ total: 175, montant: 100.5 });
   });
 
   it('synchronizes the current ERP partner reference list', async () => {

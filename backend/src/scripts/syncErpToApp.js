@@ -26,6 +26,7 @@ try {
       TO_CHAR(v.impaye_date, 'YYYY-MM-DD') AS date_saisie,
       TO_CHAR(v.date, 'YYYY-MM-DD') AS date_facture,
       TO_CHAR(COALESCE(v.date_due, v.check_end_date, v.boe_end_date), 'YYYY-MM-DD') AS date_echeance,
+      COALESCE(v.amount, 0) AS total,
       GREATEST(COALESCE(v.amount, 0) - COALESCE(v.impaye_amount_paid, 0), 0) AS montant,
       CASE WHEN v.check_journal THEN 'CHQ' WHEN v.boe_journal THEN 'LCN' ELSE 'CHQ' END AS type_valeur,
       COALESCE(NULLIF(v.number, ''), NULLIF(v.reference, ''), v.id::text) AS numero_valeur,
@@ -63,6 +64,7 @@ try {
   const impayes = result.rows.map((row) => ({
     ...row,
     erp_voucher_id: Number(row.erp_voucher_id),
+    total: Number(row.total),
     montant: Number(row.montant),
     erp_partner_id: row.erp_partner_id == null ? null : Number(row.erp_partner_id),
     banque: resolveCollectingBankName(row.erp_collecting_bank_id),
@@ -71,6 +73,7 @@ try {
   }));
   const invalidNumericRow = impayes.find((row) =>
     !Number.isInteger(row.erp_voucher_id)
+    || !Number.isFinite(row.total)
     || !Number.isFinite(row.montant)
     || (row.erp_partner_id !== null && !Number.isInteger(row.erp_partner_id))
   );

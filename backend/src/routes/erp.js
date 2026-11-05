@@ -67,6 +67,7 @@ function mapDossier(row) {
     date_saisie: row.date_saisie,
     date_facture: row.date_facture,
     date_echeance: row.date_echeance,
+    total: Number(row.total ?? row.montant ?? 0),
     montant: Number(row.montant || 0),
     type_valeur: row.type_valeur,
     numero_valeur: row.numero_valeur,

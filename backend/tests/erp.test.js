@@ -21,6 +21,7 @@ function snapshotRow(overrides = {}) {
   return {
     erp_voucher_id: 42,
     date_saisie: '2026-01-01',
+    total: 750,
     montant: 500,
     type_valeur: 'CHQ',
     numero_valeur: 'V-42',
@@ -107,6 +108,8 @@ describe('GET /api/erp/impayes/:id', () => {
     );
     const res = await request(buildApp()).get('/api/erp/impayes/erp-42').set('Authorization', authHeader(USERS.commercialA));
     expect(res.status).toBe(200);
+    expect(res.body.total).toBe(750);
+    expect(res.body.montant).toBe(500);
   });
 
   it('lets a commercial read an unassigned dossier bearing their ERP commercial name', async () => {

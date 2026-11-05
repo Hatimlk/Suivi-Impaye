@@ -83,6 +83,7 @@ export function ensureErpTrackingTables() {
         date_saisie DATE,
         date_facture DATE,
         date_echeance DATE,
+        total NUMERIC(15, 2) NOT NULL DEFAULT 0,
         montant NUMERIC(15, 2) NOT NULL DEFAULT 0,
         type_valeur VARCHAR(10) NOT NULL,
         numero_valeur VARCHAR(255) NOT NULL,
@@ -95,6 +96,11 @@ export function ensureErpTrackingTables() {
         actif BOOLEAN NOT NULL DEFAULT true,
         synced_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE erp_impayes_snapshot
+      ADD COLUMN IF NOT EXISTS total NUMERIC(15, 2);
+      UPDATE erp_impayes_snapshot SET total = montant WHERE total IS NULL;
+      ALTER TABLE erp_impayes_snapshot ALTER COLUMN total SET DEFAULT 0;
+      ALTER TABLE erp_impayes_snapshot ALTER COLUMN total SET NOT NULL;
       CREATE INDEX IF NOT EXISTS idx_erp_snapshot_actif ON erp_impayes_snapshot(actif);
       CREATE INDEX IF NOT EXISTS idx_erp_snapshot_client ON erp_impayes_snapshot(nom_tire);
       CREATE INDEX IF NOT EXISTS idx_erp_snapshot_date ON erp_impayes_snapshot(date_saisie);

@@ -25,6 +25,7 @@ export interface Dossier {
   date_facture: string | null;
   date_echeance: string | null;
   banque: string;
+  total?: number;
   montant: number;
   type_valeur: TypeValeur;
   numero_valeur: string;

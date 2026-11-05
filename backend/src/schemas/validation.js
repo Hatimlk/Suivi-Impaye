@@ -173,6 +173,7 @@ export const erpSyncItemSchema = z.object({
   date_saisie: z.string().max(32).nullable().optional(),
   date_facture: z.string().max(32).nullable().optional(),
   date_echeance: z.string().max(32).nullable().optional(),
+  total: z.number().finite().optional(),
   montant: z.number().finite(),
   type_valeur: z.string().max(10),
   numero_valeur: z.string().max(255),

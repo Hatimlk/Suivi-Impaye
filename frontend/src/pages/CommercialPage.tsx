@@ -312,7 +312,8 @@ export default function CommercialPage() {
                     <StatusBadge statut={d.statut} />
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div><span className="block text-gray-400">Montant</span><span className="font-mono font-bold text-gray-900">{formatMontant(d.montant)}</span></div>
+                    <div><span className="block text-gray-400">Total</span><span className="font-mono font-bold text-gray-900">{formatMontant(d.total ?? d.montant)}</span></div>
+                    <div><span className="block text-gray-400">Solde impayé</span><span className="font-mono font-bold text-gray-900">{formatMontant(d.montant)}</span></div>
                     <div><span className="block text-gray-400">Banque</span><span className="font-medium text-gray-700">{d.banque}</span></div>
                     <div><span className="block text-gray-400">Date facture</span><span className="font-medium text-gray-700">{d.date_facture ? formatDate(d.date_facture) : '-'}</span></div>
                     <div><span className="block text-gray-400">Retard</span><span className={cn('font-semibold', days >= 30 ? 'text-red-600' : days >= 7 ? 'text-amber-600' : 'text-gray-700')}>{days}j</span></div>
@@ -328,7 +329,8 @@ export default function CommercialPage() {
                 <Th>Date de facture</Th>
                 <Th>Échéance</Th>
                 <Th>Banque</Th>
-                <Th align="right">Montant</Th>
+                <Th align="right">Total</Th>
+                <Th align="right">Solde impayé</Th>
                 <Th>Val</Th>
                 <Th>N Valeur</Th>
                 <Th>Partenaire</Th>
@@ -346,6 +348,7 @@ export default function CommercialPage() {
                   <Td>{d.date_facture ? formatDate(d.date_facture) : '-'}</Td>
                   <Td>{d.date_echeance ? formatDate(d.date_echeance) : '-'}</Td>
                   <Td className="font-medium">{d.banque}</Td>
+                  <Td align="right" className="font-mono">{formatMontant(d.total ?? d.montant)}</Td>
                   <Td align="right" className="font-mono">{formatMontant(d.montant)}</Td>
                   <Td>
                     <Badge tone="brand" pill={false} className={d.type_valeur === 'LCN' ? 'bg-violet-100 text-violet-700' : ''}>
