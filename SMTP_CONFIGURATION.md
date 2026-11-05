@@ -3,7 +3,7 @@
 Ajouter les variables suivantes dans `.env.local` en local et dans les variables d’environnement Vercel en production :
 
 ```env
-SMTP_HOST=<hote-smtp-fourni-par-votre-hebergeur>
+SMTP_HOST=mail.infomaniak.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=<adresse-expediteur>
@@ -15,9 +15,8 @@ APP_URL=https://adresse-de-l-application.vercel.app
 
 - Utiliser `SMTP_SECURE=true` avec le port `465`.
 - Utiliser `SMTP_SECURE=false` avec le port `587` (STARTTLS).
-- Ne jamais enregistrer l'hote, l'adresse d'expedition ou le mot de passe SMTP reels dans Git — y
-  compris dans ce fichier.
+- Ne jamais enregistrer le mot de passe SMTP réel dans Git.
 
-Une notification est envoyée au commercial affecté lorsqu’un autre utilisateur ajoute une action au dossier. L’auteur ne reçoit pas de notification s’il commente son propre dossier. Une panne SMTP ne bloque pas l’enregistrement de l’action.
+Une notification est envoyée au commercial affecté chaque fois qu’un utilisateur ajoute une action au dossier, y compris lorsque le commercial commente son propre dossier. Une panne SMTP ne bloque pas l’enregistrement de l’action.
 
 Lorsqu’une action possède une date limite et que cette date est dépassée, PROGAD envoie automatiquement un seul e-mail de rappel à l’utilisateur qui a créé l’action. Le contrôle est exécuté quotidiennement par une tâche Vercel sécurisée avec `CRON_SECRET`. En cas d’échec SMTP, l’envoi sera retenté lors d’une prochaine exécution.

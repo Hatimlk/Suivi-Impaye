@@ -1,6 +1,9 @@
 {
   "buildCommand": "npm install && cd frontend && npm install --include=dev && npm run build",
   "outputDirectory": "frontend/dist",
+  "env": {
+    "SMTP_HOST": "mail.infomaniak.com"
+  },
   "crons": [
     {
       "path": "/api/cron/action-reminders",

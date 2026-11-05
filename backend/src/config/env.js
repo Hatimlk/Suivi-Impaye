@@ -1,5 +1,9 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+dotenv.config({ path: [resolve(projectRoot, '.env.local'), resolve(projectRoot, '.env')] });
 
 function requireSecret(name) {
   const value = process.env[name];
