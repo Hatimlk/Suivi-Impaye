@@ -23,13 +23,34 @@ import {
 const router = Router();
 router.use(authenticateToken);
 
+function smtpFailureMessage(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const responseCode = Number(error?.responseCode || 0);
+  if (code === 'SMTP_NOT_CONFIGURED') {
+    return 'Configuration SMTP incomplète dans Vercel.';
+  }
+  if (code === 'EAUTH' || responseCode === 534 || responseCode === 535) {
+    return "Authentification Infomaniak refusée. Utilisez l'adresse e-mail complète comme SMTP_USER et le mot de passe dédié à l'application comme SMTP_PASS.";
+  }
+  if (['ESOCKET', 'ECONNECTION', 'ETIMEDOUT', 'ECONNREFUSED'].includes(code)) {
+    return 'Connexion impossible à mail.infomaniak.com:587. Vérifiez SMTP_HOST, SMTP_PORT=587 et SMTP_SECURE=false.';
+  }
+  if (code === 'ETLS') {
+    return 'La négociation STARTTLS avec Infomaniak a échoué. Utilisez le port 587 avec SMTP_SECURE=false.';
+  }
+  if ([550, 551, 553].includes(responseCode)) {
+    return "Infomaniak a refusé l'expéditeur. SMTP_FROM_EMAIL doit correspondre à une adresse autorisée pour ce compte.";
+  }
+  return `Échec SMTP${code ? ` (${code}${responseCode ? `/${responseCode}` : ''})` : ''}. Consultez les journaux Vercel pour le détail.`;
+}
+
 router.post('/smtp/test', requireRole('admin'), async (req, res) => {
   try {
     const result = await sendSmtpTestEmail({ to: req.user.email, nom: req.user.nom });
     res.json(result);
   } catch (err) {
-    console.error('Erreur test SMTP:', err.message);
-    res.status(503).json({ error: 'Échec du test SMTP. Vérifiez les variables Vercel et le mot de passe.' });
+    console.error('Erreur test SMTP:', err.code || 'UNKNOWN', err.responseCode || '', err.message);
+    res.status(503).json({ error: smtpFailureMessage(err) });
   }
 });
 

@@ -4,7 +4,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeQueryImpl, USERS, authHeader } from './helpers.js';
 
 const db = vi.hoisted(() => ({ query: vi.fn(async () => ({ rows: [] })) }));
+const mailer = vi.hoisted(() => ({ sendSmtpTestEmail: vi.fn() }));
 vi.mock('../src/config/db.js', () => ({ query: db.query, getClient: vi.fn() }));
+vi.mock('../src/services/mailer.js', () => mailer);
 vi.mock('../src/config/erpDb.js', () => ({
   checkErpConnection: vi.fn(),
   getErpConfigurationStatus: vi.fn(() => ({ configured: false, missing: [] })),
@@ -22,6 +24,20 @@ function buildApp() {
 beforeEach(() => {
   db.query.mockReset();
   db.query.mockImplementation(fakeQueryImpl([]));
+  mailer.sendSmtpTestEmail.mockReset();
+});
+
+describe('POST /api/admin/smtp/test', () => {
+  it('explains that Infomaniak requires the dedicated application password on authentication failure', async () => {
+    mailer.sendSmtpTestEmail.mockRejectedValue(Object.assign(new Error('Invalid login'), { code: 'EAUTH', responseCode: 535 }));
+    const res = await request(buildApp())
+      .post('/api/admin/smtp/test')
+      .set('Authorization', authHeader(USERS.admin));
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain("mot de passe dédié à l'application");
+    expect(res.body.error).not.toContain('Invalid login');
+  });
 });
 
 describe('GET /api/admin/users', () => {
